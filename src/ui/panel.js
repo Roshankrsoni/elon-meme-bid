@@ -121,7 +121,7 @@ export function initStudio({ studio, onOpenChange }) {
       card_.className = 'patchcard'
       card_.dataset.brandId = brand.id
 
-      const swatch = createPatchCanvas(brand, { width: 168 })
+      const swatch = createPatchCanvas(brand, { size: 168 })
       swatch.style.width = '100%'
       swatch.style.height = 'auto'
       card_.append(swatch)
@@ -183,7 +183,7 @@ export function initStudio({ studio, onOpenChange }) {
       tile.type = 'button'
       tile.className = 'patchcard'
       tile.dataset.brandId = brand.id
-      const swatch = createPatchCanvas(brand, { width: 168 })
+      const swatch = createPatchCanvas(brand, { size: 168 })
       swatch.style.width = '100%'
       swatch.style.height = 'auto'
       tile.append(swatch)

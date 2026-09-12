@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from 'three-mesh-bvh'
-import { PATCH_ASPECT, SLOT, findBrand, patchTexture } from '../ui/patches.js'
+import { SLOT, findBrand, patchAspect, patchTexture } from '../ui/patches.js'
 import { model as modelConfig, placement as config, zones as zoneDefs } from '../config.js'
 
 /*
@@ -17,7 +17,7 @@ const PROBE_DEPTH = 0.1
 const SURFACE_OFFSET = config.surfaceOffset
 /** Minimum dot between a marker normal and a probed face normal to accept it. */
 const SURFACE_ALIGNMENT = 0.35
-const EMISSIVE = { idle: 0.14, hover: 0.3, active: 0.46 }
+const EMISSIVE = { idle: 0.9, hover: 1.1, active: 1.5 }
 
 /** Scratch objects — the conform loop runs ~350 times per marker. */
 const scratch = {
@@ -84,6 +84,28 @@ export class BodyZones {
     // Reparented into the avatar once it exists.
     this.layer = new THREE.Group()
     this.layer.name = 'zones'
+
+    /*
+     * A slightly larger copy of the open marker, drawn behind it. Scaling a
+     * conformed quad about its own centre lifts it clear of the skin just
+     * enough to read as a ring around the patch.
+     */
+    this.outline = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        color: 0x3fe9ff,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    )
+    this.outline.name = 'zone-outline'
+    this.outline.renderOrder = 1
+    this.outline.visible = false
+    this.outline.matrixAutoUpdate = false
+    this.layer.add(this.outline)
 
     /** @type {Map<string, object>} */
     this.items = new Map()
@@ -246,8 +268,8 @@ export class BodyZones {
    * the surface normal and pulled onto the first co-facing surface it meets, so
    * a flat decal cannot sink into a curved chest.
    */
-  _conformGeometry(width, localOrigin, localQuaternion, localNormal) {
-    const geometry = new THREE.PlaneGeometry(width, width / PATCH_ASPECT, 20, 15)
+  _conformGeometry(width, localOrigin, localQuaternion, localNormal, shape = 'square') {
+    const geometry = new THREE.PlaneGeometry(width, width / patchAspect(shape), 20, 15)
     const position = geometry.attributes.position
 
     this.group.getWorldQuaternion(scratch.quaternion)
@@ -257,9 +279,14 @@ export class BodyZones {
     const frame = new THREE.Matrix4().compose(localOrigin, localQuaternion, new THREE.Vector3(1, 1, 1))
     const inverseFrame = frame.clone().invert()
 
-    // A vertex may only move this far off the tangent plane, or a nearby limb
-    // can drag half the quad with it.
-    const maxDeviation = width * 0.25
+    /*
+     * A vertex may only move this far off the tangent plane, or a nearby limb
+     * can drag half the quad with it. Scaled off the quad's LONG side: on a
+     * narrow band the far ends sit much further from the tangent point than the
+     * width suggests.
+     */
+    const long = Math.max(width, width / patchAspect(shape))
+    const maxDeviation = long * 0.24
     const nearLimit = Math.max(0.004, PROBE_DEPTH - maxDeviation)
     const farLimit = PROBE_DEPTH + maxDeviation
     let conformed = 0
@@ -305,20 +332,21 @@ export class BodyZones {
     return { geometry, coverage: conformed / position.count }
   }
 
-  _materialFor(brand, opacity) {
-    const map = patchTexture(brand)
+  _materialFor(brand, opacity, shape = 'square') {
+    const map = patchTexture(brand, shape)
     return new THREE.MeshStandardMaterial({
       map,
       /*
-       * A printed patch is a diffuse surface, and in this dim arena the diffuse
-       * term is small — so the emissive lift has to stay well below it or the
-       * marker stops responding to light and reads as a pasted-on decal.
+       * A printed patch is a diffuse surface, so the diffuse term has to stay
+       * dominant — otherwise the marker stops responding to light and reads as
+       * a pasted-on decal. The emissive lift only replaces what the dim arena
+       * would otherwise take out of the brand colour.
        */
-      color: 0xd0d0d0,
+      color: 0x8f8f8f,
       emissive: new THREE.Color(0xffffff),
       emissiveMap: map,
       emissiveIntensity: EMISSIVE.idle,
-      envMapIntensity: 0.25,
+      envMapIntensity: 0.15,
       transparent: true,
       opacity: opacity / 100,
       alphaTest: 0.35,
@@ -376,9 +404,10 @@ export class BodyZones {
        * it hanging off the silhouette, so the marker steps down until enough of
        * it lands on co-facing surface. Limb spots are held to a stricter fit.
        */
+      const shape = def.shape ?? 'square'
       let sizeCm = def.sizeCm
       let geometry = null
-      const need = def.tight ? 0.94 : config.minCoverage
+      const need = def.tight ? 0.9 : config.minCoverage
 
       for (const scale of [1, 0.85, 0.7, 0.56, 0.44]) {
         const attempt = this._conformGeometry(
@@ -386,6 +415,7 @@ export class BodyZones {
           localOrigin,
           localQuaternion,
           localNormal,
+          shape,
         )
         if (attempt.coverage >= need) {
           sizeCm *= scale
@@ -400,7 +430,7 @@ export class BodyZones {
         continue
       }
 
-      const mesh = new THREE.Mesh(geometry, this._materialFor(brand, 100))
+      const mesh = new THREE.Mesh(geometry, this._materialFor(brand, 100, shape))
       mesh.name = `zone-${def.id}`
       mesh.renderOrder = 2
       mesh.userData.zoneId = def.id
@@ -419,6 +449,7 @@ export class BodyZones {
         localQuaternion,
         worldPoint,
         worldNormal,
+        shape,
         sizeCm,
         rotationDeg: def.rotation ?? 0,
         opacity: 100,
@@ -433,7 +464,7 @@ export class BodyZones {
     const item = this.items.get(id)
     if (!item) return
 
-    const map = patchTexture(brand)
+    const map = patchTexture(brand, item.shape)
     item.brand = brand
     item.mesh.material.map = map
     item.mesh.material.emissiveMap = map
@@ -451,6 +482,16 @@ export class BodyZones {
           ? EMISSIVE.hover
           : EMISSIVE.idle
     }
+
+    const open = this.focused
+    this.outline.visible = !!open
+    if (!open) return
+
+    this.outline.geometry = open.mesh.geometry
+    this.outline.position.copy(open.mesh.position)
+    this.outline.quaternion.copy(open.mesh.quaternion)
+    this.outline.scale.set(1.075, 1.075, 1)
+    this.outline.updateMatrix()
   }
 
   /* ------------------------------------------------------------- public -- */
@@ -494,6 +535,7 @@ export class BodyZones {
         item.localOrigin,
         item.localQuaternion,
         item.localNormal,
+        item.shape,
       ).geometry
     }
     if (rotationDeg !== undefined) {

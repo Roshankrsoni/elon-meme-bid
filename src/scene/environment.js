@@ -300,6 +300,63 @@ function buildWallFrames() {
 }
 
 /**
+ * The occlusion pool under the figure. Its own profile rather than the glow
+ * helper: a contact shadow needs a dense core and a fast falloff, which is the
+ * opposite of a light bloom.
+ */
+const shadowCache = new Map()
+
+function shadowTexture() {
+  if (shadowCache.has('shadow')) return shadowCache.get('shadow')
+
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  g.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  g.addColorStop(0.3, 'rgba(0, 0, 0, 0.94)')
+  g.addColorStop(0.52, 'rgba(0, 0, 0, 0.6)')
+  g.addColorStop(0.74, 'rgba(0, 0, 0, 0.22)')
+  g.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, size, size)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  shadowCache.set('shadow', texture)
+  return texture
+}
+
+/**
+ * A vertical gradient for the wall: a lit band at eye level falling away to
+ * near-black at the floor, so the backdrop reads as depth rather than fill.
+ */
+const wallCache = new Map()
+
+function wallTexture() {
+  if (wallCache.has('wall')) return wallCache.get('wall')
+
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')
+  const gradient = ctx.createLinearGradient(0, 256, 0, 0)
+  gradient.addColorStop(0, 'rgba(6, 12, 20, 1)')
+  gradient.addColorStop(0.28, 'rgba(30, 52, 74, 1)')
+  gradient.addColorStop(0.6, 'rgba(20, 38, 56, 1)')
+  gradient.addColorStop(1, 'rgba(6, 11, 18, 1)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 4, 256)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  wallCache.set('wall', texture)
+  return texture
+}
+
+/**
  * An enclosing dark wall. Without it the floor's far edge hangs in mid-air and
  * the horizon line reads as a floating ring.
  */
@@ -310,9 +367,10 @@ function buildWall() {
   const wall = new THREE.Mesh(
     new THREE.CylinderGeometry(ARENA.wallRadius, ARENA.wallRadius, ARENA.wallHeight, 64, 1, true),
     new THREE.MeshStandardMaterial({
-      color: 0x0c141e,
-      roughness: 0.92,
-      metalness: 0.12,
+      map: wallTexture(),
+      color: 0x1a2a3c,
+      roughness: 0.9,
+      metalness: 0.1,
       side: THREE.BackSide,
       emissive: new THREE.Color(0x0a1a24),
     }),
@@ -379,7 +437,7 @@ function buildPedestal() {
       color: 0x0a1017,
       roughness: 0.62,
       metalness: 0.18,
-      emissive: new THREE.Color(CYAN).multiplyScalar(0.05),
+      emissive: new THREE.Color(CYAN).multiplyScalar(0.02),
     }),
   )
   disc.position.y = (TOP + BOTTOM) / 2
@@ -392,12 +450,28 @@ function buildPedestal() {
       color: 0x0a131d,
       roughness: 0.5,
       metalness: 0.2,
-      emissive: new THREE.Color(CYAN).multiplyScalar(0.03),
+      emissive: new THREE.Color(CYAN).multiplyScalar(0.015),
     }),
   )
   top.rotation.x = -Math.PI / 2
   top.position.y = TOP
   group.add(top)
+
+  // A soft occlusion pool under the figure. Without it the platform reads
+  // brighter directly beneath the body than beside it, which floats the figure.
+  const shadowSize = ARENA.pedestalRadius * 2.05
+  const contact = new THREE.Mesh(
+    new THREE.PlaneGeometry(shadowSize, shadowSize),
+    new THREE.MeshBasicMaterial({
+      map: shadowTexture(),
+      transparent: true,
+      depthWrite: false,
+    }),
+  )
+  contact.rotation.x = -Math.PI / 2
+  // Lifted clear of the dais face, or the two planes z-fight at grazing angles.
+  contact.position.y = TOP + 0.012
+  group.add(contact)
 
   // A crisp rim is what actually sells it as a platform edge.
   group.add(buildRing({ radius: ARENA.pedestalRadius * 0.995, tube: 0.006, y: TOP + 0.004, color: CYAN_HI, intensity: 2.4 }))
@@ -509,26 +583,33 @@ export function buildEnvironment(scene, renderer) {
    * cyan points are deliberately weak and desaturated — the arena's neon comes
    * from its emissive geometry, which costs the skin nothing.
    */
-  const ambient = new THREE.AmbientLight(0xffffff, 0.26)
+  const ambient = new THREE.AmbientLight(0xffe9dc, 0.55)
 
-  const key = new THREE.DirectionalLight(0xfff6ec, 2.05)
+  // The key carries the form; it stays warm so skin keeps its red.
+  const key = new THREE.DirectionalLight(0xffe4c8, 0.8)
   key.position.set(2.2, 3.2, 2.8)
 
-  const fill = new THREE.DirectionalLight(0xdfe6ec, 0.5)
+  const fill = new THREE.DirectionalLight(0xe8eef2, 0.42)
   fill.position.set(-2.4, 1.6, 1.8)
 
-  const rimA = new THREE.PointLight(0x7fc4d6, 1.1, 4, 2)
+  // A frontal lift at face height — without it the head sits a stop under the
+  // chest, which is the wrong way round for a portrait.
+  const face = new THREE.DirectionalLight(0xffe0c8, 1.85)
+  face.position.set(0.5, 1.1, 3.2)
+
+  // The cyan points only kiss the silhouette now.
+  const rimA = new THREE.PointLight(0x7fc4d6, 0.7, 4, 2)
   rimA.position.set(-1.7, 1.7, -1.4)
 
-  const rimB = new THREE.PointLight(0x7fc4d6, 0.9, 4, 2)
+  const rimB = new THREE.PointLight(0x7fc4d6, 0.55, 4, 2)
   rimB.position.set(1.8, 1.1, -1.5)
 
-  const kicker = new THREE.PointLight(PINK, 0.7, 2.2, 2)
+  const kicker = new THREE.PointLight(PINK, 0.5, 2.2, 2)
   kicker.position.set(0.9, 0.4, 1.0)
 
-  const bounce = new THREE.HemisphereLight(0x9aa3ab, 0x05080d, 0.22)
+  const bounce = new THREE.HemisphereLight(0xb0b6ba, 0x0a0d12, 0.3)
 
-  lights.add(ambient, key, fill, rimA, rimB, kicker, bounce)
+  lights.add(ambient, key, fill, face, rimA, rimB, kicker, bounce)
   scene.add(lights)
 
   const envMap = buildEnvironmentMap(renderer)

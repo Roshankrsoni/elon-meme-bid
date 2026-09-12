@@ -47,9 +47,9 @@ export const model = {
    * The scan ships metalnessFactor/roughnessFactor of 1 driven by its
    * packed ORM texture. These clamps keep skin reading as skin.
    */
-  envIntensity: 0.4,
+  envIntensity: 0.6,
   maxMetalness: 0.5,
-  minRoughness: 0.34,
+  minRoughness: 0.26,
 }
 
 export const camera = {
@@ -106,14 +106,16 @@ export const zones = [
   // The figure faces +Z, so its own right side is −X — the side a viewer sees
   // on the left of the screen.
   //
+  // `shape` picks the slot geometry: squares for the chest and back, bands
+  // (which carry text, not a mark) for the limbs.
+  //
   // `tight` marks the spots on a thin limb: a bicep curves away fast, so its
   // marker has to be held to a stricter fit or it wraps off the silhouette.
-  { id: 'forehead', label: 'Forehead', at: [0.03, 0.935], from: 'front', sizeCm: 7, brandId: 'flux' },
-  { id: 'right-chest', label: 'Right chest', at: [-0.08, 0.58], from: 'front', sizeCm: 8, brandId: 'volt' },
-  { id: 'left-chest', label: 'Left chest', at: [0.08, 0.58], from: 'front', sizeCm: 8, brandId: 'higgs' },
+  { id: 'right-chest', label: 'Right chest', at: [-0.088, 0.66], from: 'front', sizeCm: 8, brandId: 'volt' },
+  { id: 'left-chest', label: 'Left chest', at: [0.088, 0.66], from: 'front', sizeCm: 8, brandId: 'higgs' },
   { id: 'abs', label: 'Abs', at: [0, 0.48], from: 'front', sizeCm: 9, brandId: 'apex' },
-  { id: 'right-bicep', label: 'Right bicep', at: [-0.205, 0.48], from: 'front', sizeCm: 6, brandId: 'hypr', tight: true },
-  { id: 'left-bicep', label: 'Left bicep', at: [0.24, 0.5], from: 'front', sizeCm: 6, brandId: 'nova', tight: true },
+  { id: 'right-bicep', label: 'Right bicep', at: [-0.185, 0.58], from: 'front', sizeCm: 5, shape: 'band', brandId: 'hypr', tight: true },
+  { id: 'left-bicep', label: 'Left bicep', at: [0.195, 0.58], from: 'front', sizeCm: 5, shape: 'band', brandId: 'nova', tight: true },
   { id: 'upper-back', label: 'Upper back', at: [0, 0.64], from: 'back', sizeCm: 10, brandId: 'pulse' },
   { id: 'lower-back', label: 'Lower back', at: [-0.02, 0.35], from: 'back', sizeCm: 10, brandId: 'orbit' },
 ]

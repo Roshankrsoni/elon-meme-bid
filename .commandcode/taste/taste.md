@@ -3,6 +3,7 @@
 ## Communication & workflow
 
 - Delegates long tasks and keeps the agent running with terse "continue" prompts rather than new instructions or check-ins — comfortable with extended autonomous execution. Confidence: 0.5
+- Wants shell/agent commands run without approval prompts — prefers bypassing permission confirmations and letting commands execute autonomously. Confidence: 0.6
 
 ## Product & UX
 

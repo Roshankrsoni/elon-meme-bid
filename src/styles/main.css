@@ -1028,15 +1028,15 @@ input[type='range']:disabled::-webkit-slider-thumb {
   margin-top: 18px;
   padding-bottom: 2px;
   font-size: 12px;
-  color: var(--text-2);
+  color: var(--accent);
   text-decoration: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: 1px solid rgba(31, 214, 240, 0.4);
   transition: color 160ms ease, border-color 160ms ease;
 }
 
 .brandcard__link:hover {
   color: var(--accent-hi);
-  border-color: var(--accent);
+  border-color: var(--accent-hi);
 }
 
 .brandcard__foot {

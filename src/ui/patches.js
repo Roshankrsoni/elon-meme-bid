@@ -1,21 +1,41 @@
 import * as THREE from 'three'
 
 /**
- * Everything in the brand gallery is drawn at runtime on a canvas, so the site
- * ships with no branding assets of its own. Swap `BRANDS` for real sponsor
- * artwork whenever you like — the detail card reads straight off these fields.
+ * The sponsor stickers are drawn at runtime on a canvas, so the site ships with
+ * no branding assets of its own. The visual language follows the reference:
+ *
+ *   • one flat fill per sticker — acid lime, with orange as the single hero slot
+ *   • a rounded "die-cut" square, never perfectly machine-square
+ *   • a white dashed ring offset just outside the silhouette
+ *   • exactly one mark inside: a hand-drawn glyph, or a code
+ *   • limb slots are text bands instead of squares
  */
 
+const INK = '#0d1114'
+const LIME = '#dce84f'
+const ORANGE = '#f26722'
+const DIE_CUT = 'rgba(255, 255, 255, 0.82)'
+
+/** Slot geometry, as a width ÷ height ratio. */
+export const SHAPES = {
+  square: 1,
+  band: 1 / 1.8,
+}
+
+export function patchAspect(shape) {
+  return SHAPES[shape] ?? SHAPES.square
+}
+
 export const BRANDS = [
-  { id: 'volt', label: 'Volt', mark: 'VOLT', style: 'qr', color: '#ddf03c', seed: 23, monogram: 'V', handle: '@volt', blurb: 'Every AI video and image model', url: 'volt.run', amount: '$8,000', views: '32,269' },
-  { id: 'higgs', label: 'Higsfield', mark: 'HIGS', style: 'qr', color: '#ddf03c', seed: 31, monogram: 'H', handle: '@higsfield', blurb: 'Generative video for athletes and brands', url: 'higsfield.ai', amount: '$11,400', views: '41,882' },
-  { id: 'apex', label: '20', mark: '20', style: 'plate', color: '#ddf03c', seed: 37, monogram: '20', handle: '@apex20', blurb: 'Performance nutrition, nothing else', url: 'apex20.com', amount: '$6,250', views: '18,904' },
-  { id: 'hypr', label: 'Hypr', mark: 'HYPR', style: 'strip', color: '#3fe9ff', seed: 41, monogram: 'HY', handle: '@hypr', blurb: 'Recovery tools built for race day', url: 'hypr.fit', amount: '$5,100', views: '14,337' },
-  { id: 'nova', label: 'Nova', mark: 'NOVA', style: 'qr', color: '#f06ea0', seed: 53, monogram: 'N', handle: '@novalabs', blurb: 'Sleep and recovery tracking', url: 'novalabs.io', amount: '$9,750', views: '27,615' },
-  { id: 'pulse', label: 'Pulse', mark: 'PULSE', style: 'strip', color: '#f2f5f7', seed: 67, monogram: 'PL', handle: '@pulse', blurb: 'Heart-rate kit for endurance sport', url: 'pulse.run', amount: '$7,300', views: '22,048' },
-  { id: 'kinet', label: 'Kinet', mark: 'KINET', style: 'qr', color: '#3fe9ff', seed: 71, monogram: 'K', handle: '@kinet', blurb: 'Carbon plates, made in Kenya', url: 'kinet.cc', amount: '$12,900', views: '38,410' },
-  { id: 'orbit', label: 'Orbit', mark: 'ORBIT', style: 'strip', color: '#f06ea0', seed: 89, monogram: 'OR', handle: '@orbitwear', blurb: 'Technical kit for hybrid racing', url: 'orbitwear.com', amount: '$4,600', views: '11,762' },
-  { id: 'flux', label: 'Flux', mark: 'FLUX', style: 'plate', color: '#ffa24b', seed: 97, monogram: 'FX', handle: '@fluxenergy', blurb: 'Electrolytes without the sugar', url: 'flux.energy', amount: '$5,900', views: '16,205' },
+  { id: 'volt', label: 'Volt', mark: 'glyph', fill: LIME, seed: 23, band: ['VOLT V3', 'VOLT'], handle: '@volt', blurb: 'Every AI video and image model', url: 'volt.run', amount: '$8,000', views: '32,269' },
+  { id: 'higgs', label: 'Higsfield', mark: 'code', fill: LIME, seed: 31, band: ['GPT-6 ASTRA', 'HIGSFIELD'], handle: '@higsfield', blurb: 'Generative video for athletes and brands', url: 'higsfield.ai', amount: '$11,400', views: '41,882' },
+  { id: 'apex', label: 'Apex 20', mark: 'glyph', fill: ORANGE, seed: 37, band: ['ZERO', 'RANK'], handle: '@apex20', blurb: 'Performance nutrition, nothing else', url: 'apex20.com', amount: '$6,250', views: '18,904' },
+  { id: 'hypr', label: 'Hypr', mark: 'code', fill: LIME, seed: 41, band: ['HYPR X1', 'HYPR'], handle: '@hypr', blurb: 'Recovery tools built for race day', url: 'hypr.fit', amount: '$5,100', views: '14,337' },
+  { id: 'nova', label: 'Nova', mark: 'glyph', fill: LIME, seed: 53, band: ['NOVA 2.5', 'NOVA'], handle: '@novalabs', blurb: 'Sleep and recovery tracking', url: 'novalabs.io', amount: '$9,750', views: '27,615' },
+  { id: 'pulse', label: 'Pulse', mark: 'glyph', fill: LIME, seed: 67, band: ['PULSE KIT', 'PULSE'], handle: '@pulse', blurb: 'Heart-rate kit for endurance sport', url: 'pulse.run', amount: '$7,300', views: '22,048' },
+  { id: 'kinet', label: 'Kinet', mark: 'code', fill: LIME, seed: 71, band: ['KINET 01', 'KINET'], handle: '@kinet', blurb: 'Carbon plates, made in Kenya', url: 'kinet.cc', amount: '$12,900', views: '38,410' },
+  { id: 'orbit', label: 'Orbit', mark: 'glyph', fill: LIME, seed: 89, band: ['ORBIT WEAR', 'ORBIT'], handle: '@orbitwear', blurb: 'Technical kit for hybrid racing', url: 'orbitwear.com', amount: '$4,600', views: '11,762' },
+  { id: 'flux', label: 'Flux', mark: 'code', fill: LIME, seed: 97, band: ['SEEDREAM 5', 'FLUX'], handle: '@fluxenergy', blurb: 'Electrolytes without the sugar', url: 'flux.energy', amount: '$5,900', views: '16,205' },
 ]
 
 /**
@@ -23,12 +43,10 @@ export const BRANDS = [
  * a brand you can browse — it is only used when a zone has no sponsor.
  */
 export const SLOT = {
-  id: 'slot', label: 'Your logo', style: 'slot', color: '#ddf03c', seed: 11,
-  monogram: '+', handle: '@yourbrand', url: 'sponsormybody.com', amount: '$1,000', views: '0',
-  blurb: 'This spot is open — claim it with your logo.',
+  id: 'slot', label: 'Your logo', mark: 'empty', fill: LIME, seed: 11,
+  band: ['YOUR BRAND', 'YOUR BRAND'], handle: '@yourbrand', url: 'sponsormybody.com',
+  amount: '$1,000', views: '0', blurb: 'This spot is open — claim it with your logo.',
 }
-
-export const PATCH_ASPECT = 512 / 360
 
 export function findBrand(id) {
   if (id === SLOT.id) return SLOT
@@ -49,205 +67,240 @@ function mulberry32(seed) {
 
 function luminance(hex) {
   const value = parseInt(hex.slice(1), 16)
-  const r = (value >> 16) & 255
-  const g = (value >> 8) & 255
-  const b = value & 255
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
-}
-
-/** Shrinks the font until the string fits, so labels never run off a patch. */
-function fitText(ctx, text, maxWidth, { weight = 700, size, family = 'Inter, sans-serif' }) {
-  let current = size
-  ctx.font = `${weight} ${current}px ${family}`
-  while (current > 8 && ctx.measureText(text).width > maxWidth) {
-    current -= 2
-    ctx.font = `${weight} ${current}px ${family}`
-  }
-  return current
+  return (
+    (0.2126 * ((value >> 16) & 255) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255)) / 255
+  )
 }
 
 /**
- * Draws a QR-ish matrix: finder squares in three corners, seeded noise inside.
- * The finder cores are drawn in `background`, never erased — punching alpha
- * here would cut holes straight through the patch once it is alpha-tested.
+ * Rounded rectangle with a slightly different radius per corner, so the
+ * silhouette never looks machine-cut.
  */
-function drawMatrix(ctx, x, y, size, modules, color, seed, background) {
+function organicRoundRect(ctx, x, y, w, h, radius, random, jitter = 0.06) {
+  const r = () => Math.min(radius * (1 - jitter / 2 + random() * jitter), w / 2, h / 2)
+  const tl = r()
+  const tr = r()
+  const br = r()
+  const bl = r()
+
+  ctx.beginPath()
+  ctx.moveTo(x + tl, y)
+  ctx.lineTo(x + w - tr, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr)
+  ctx.lineTo(x + w, y + h - br)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h)
+  ctx.lineTo(x + bl, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl)
+  ctx.lineTo(x, y + tl)
+  ctx.quadraticCurveTo(x, y, x + tl, y)
+  ctx.closePath()
+}
+
+/** The white die-cut dashes that sit just outside every sticker. */
+function dieCut(ctx, x, y, w, h, radius, random) {
+  // Sized off the sticker's short side, so the dashes stay visible once the
+  // texture is minified onto a body a few centimetres across.
+  const unit = Math.min(w, h)
+  const gap = unit * 0.045
+  ctx.save()
+  ctx.setLineDash([unit * 0.07, unit * 0.055])
+  ctx.lineWidth = unit * 0.03
+  ctx.strokeStyle = DIE_CUT
+  organicRoundRect(ctx, x - gap, y - gap, w + gap * 2, h + gap * 2, radius + gap, random, 0.04)
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * The hand-drawn mark: enters upper-left with a small hook, sweeps down into an
+ * S, closes a loop at the bottom-right, and leaves a short tail to the right.
+ */
+function drawGlyph(ctx, cx, cy, size, ink) {
+  const u = size / 100
+  const P = (x, y) => [cx + (x - 50) * u, cy + (y - 50) * u]
+
+  ctx.save()
+  ctx.strokeStyle = ink
+  ctx.lineWidth = 12 * u
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  const start = P(26, 30)
+  ctx.beginPath()
+  ctx.moveTo(start[0], start[1])
+  ctx.bezierCurveTo(...P(46, 14), ...P(70, 22), ...P(60, 40))
+  ctx.bezierCurveTo(...P(53, 53), ...P(34, 60), ...P(25, 73))
+  ctx.bezierCurveTo(...P(17, 86), ...P(32, 93), ...P(45, 87))
+  ctx.bezierCurveTo(...P(60, 80), ...P(63, 64), ...P(52, 59))
+  ctx.bezierCurveTo(...P(44, 56), ...P(38, 62), ...P(42, 68))
+  ctx.stroke()
+
+  // Short tail leaving to the right at mid-height.
+  const tail = P(52, 59)
+  const tip = P(78, 46)
+  ctx.beginPath()
+  ctx.moveTo(tail[0], tail[1])
+  ctx.lineTo(tip[0], tip[1])
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * A code mark printed straight onto the sticker fill — the fill is the quiet
+ * zone, exactly as in the reference.
+ */
+function drawCode(ctx, x, y, size, modules, ink, fill, seed) {
   const random = mulberry32(seed)
   const cell = size / modules
+
   const inFinder = (cx, cy) => {
-    const corner = (ox, oy) => cx >= ox && cx < ox + 3 && cy >= oy && cy < oy + 3
-    return corner(0, 0) || corner(modules - 3, 0) || corner(0, modules - 3)
+    const corner = (ox, oy) => cx >= ox && cx < ox + 7 && cy >= oy && cy < oy + 7
+    return corner(0, 0) || corner(modules - 7, 0) || corner(0, modules - 7)
   }
 
-  ctx.fillStyle = color
-
+  ctx.save()
+  ctx.fillStyle = ink
   for (let cy = 0; cy < modules; cy += 1) {
     for (let cx = 0; cx < modules; cx += 1) {
       if (inFinder(cx, cy)) continue
-      if (random() > 0.52) {
-        ctx.fillRect(x + cx * cell, y + cy * cell, cell * 0.92, cell * 0.92)
+      if (random() > 0.5) {
+        ctx.fillRect(x + cx * cell, y + cy * cell, cell * 0.94, cell * 0.94)
       }
     }
   }
 
-  // Finder patterns: solid block with a lighter core.
-  const finders = [
-    [0, 0],
-    [modules - 3, 0],
-    [0, modules - 3],
-  ]
-  for (const [fx, fy] of finders) {
+  // Finder eyes: a bold ring with a solid core.
+  for (const [fx, fy] of [[0, 0], [modules - 7, 0], [0, modules - 7]]) {
     const px = x + fx * cell
     const py = y + fy * cell
-    const s = cell * 3
-    ctx.fillStyle = color
-    ctx.fillRect(px, py, s, s)
-    ctx.fillStyle = background
-    ctx.fillRect(px + cell * 0.72, py + cell * 0.72, s - cell * 1.44, s - cell * 1.44)
-    ctx.fillStyle = color
-    ctx.fillRect(px + cell * 1.15, py + cell * 1.15, s - cell * 2.3, s - cell * 2.3)
+    const s7 = cell * 7
+
+    ctx.fillStyle = ink
+    ctx.beginPath()
+    ctx.roundRect(px, py, s7, s7, cell * 1.6)
+    ctx.fill()
+
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    ctx.roundRect(px + cell, py + cell, s7 - cell * 2, s7 - cell * 2, cell * 0.9)
+    ctx.fill()
+
+    ctx.fillStyle = ink
+    ctx.beginPath()
+    ctx.roundRect(px + cell * 2.3, py + cell * 2.3, s7 - cell * 4.6, s7 - cell * 4.6, cell * 0.5)
+    ctx.fill()
   }
+  ctx.restore()
 }
 
-/* ------------------------------------------------------------- patch ----- */
+/** Condensed all-caps, faked by squeezing the glyphs horizontally. */
+function condensed(ctx, text, cx, cy, size, ink, squeeze = 0.84) {
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.scale(squeeze, 1)
+  ctx.fillStyle = ink
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `700 ${size}px Inter, sans-serif`
+  ctx.fillText(text, 0, 0)
+  ctx.restore()
+}
+
+/** Shrinks the font until the string fits, so type never runs off a sticker. */
+function fitSize(ctx, text, maxWidth, size, squeeze = 0.84) {
+  let current = size
+  ctx.font = `700 ${current}px Inter, sans-serif`
+  while (current > 6 && ctx.measureText(text).width * squeeze > maxWidth) {
+    current -= 2
+    ctx.font = `700 ${current}px Inter, sans-serif`
+  }
+  return current
+}
+
+/* ------------------------------------------------------------- stickers --- */
 
 /**
- * Renders one patch and returns the canvas.
- * `override.image` (HTMLImageElement) takes over as the artwork when present.
+ * Renders one sticker and returns the canvas.
+ * `shape` is 'square' (chest, back, forehead) or 'band' (limbs).
  */
-export function createPatchCanvas(patch, { width = 512 } = {}) {
-  const w = width
-  const h = Math.round(width / PATCH_ASPECT)
+export function createPatchCanvas(brand, { size = 512, shape = 'square' } = {}) {
+  const w = shape === 'band' ? Math.round(size / 1.8) : size
+  const h = size
 
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
 
-  const s = w / 512
-  const ink = luminance(patch.color) > 0.55 ? '#0d1b12' : '#0b1116'
-  const radius = 30 * s
+  const random = mulberry32(brand.seed)
+  const s = size / 512
+  const fill = brand.fill ?? LIME
+  const ink = luminance(fill) > 0.55 ? INK : '#f4f7f8'
 
-  // Body.
-  ctx.fillStyle = patch.color
-  roundRect(ctx, 0, 0, w, h, radius)
+  // Inset so the die-cut ring still fits inside the canvas.
+  const inset = size * 0.072
+  const bw = w - inset * 2
+  const bh = h - inset * 2
+  const radius = Math.min(bw, bh) * (shape === 'band' ? 0.14 : 0.22)
+
+  dieCut(ctx, inset, inset, bw, bh, radius, random)
+
+  ctx.fillStyle = fill
+  organicRoundRect(ctx, inset, inset, bw, bh, radius, random)
   ctx.fill()
 
-  const pad = 30 * s
-  // Micro-copy is dropped on gallery thumbnails, where it would only smear.
-  const detail = w >= 240
+  const cx = w / 2
+  const cy = h / 2
 
-  if (patch.style === 'slot') {
-    // Placeholder slot: dashed box + invitation to upload.
+  // Everything printed on the sticker is clipped to the sticker.
+  const stickerPath = () => organicRoundRect(ctx, inset, inset, bw, bh, radius, random, 0.06)
+  ctx.save()
+  stickerPath()
+  ctx.clip()
+
+  if (brand.mark === 'empty') {
     ctx.save()
-    ctx.setLineDash([11 * s, 9 * s])
+    ctx.setLineDash([9 * s, 7 * s])
     ctx.strokeStyle = ink
     ctx.globalAlpha = 0.55
-    ctx.lineWidth = Math.max(1, 2.4 * s)
-    roundRect(ctx, pad, h / 2 - 54 * s, w - pad * 2, 108 * s, 14 * s)
+    ctx.lineWidth = 2.4 * s
+    const pad = Math.min(bw, bh) * 0.16
+    organicRoundRect(ctx, inset + pad, inset + pad, bw - pad * 2, bh - pad * 2, radius * 0.7, random, 0.05)
     ctx.stroke()
     ctx.restore()
+    condensed(ctx, 'YOUR', cx, cy - 15 * s, 40 * s, ink)
+    condensed(ctx, 'LOGO', cx, cy + 15 * s, 40 * s, ink)
+  } else if (shape === 'band') {
+    // Two stacked lines — model name over brand — as on the reference's limb
+    // stickers.
+    const lines = brand.band ?? [brand.label, brand.label]
+    const maxW = bw * 0.88
+    const upper = fitSize(ctx, lines[0], maxW, bw * 0.46)
+    const lower = fitSize(ctx, lines[1], maxW, bw * 0.46)
 
-    ctx.fillStyle = ink
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-
-    const title = 'YOUR LOGO'
-    const size = fitText(ctx, title, w - pad * 2 - 28 * s, { size: 44 * s })
-    ctx.font = `700 ${size}px Inter, sans-serif`
-    ctx.fillText(title, w / 2, h / 2 - (detail ? 12 : 0) * s)
-
-    if (detail) {
-      ctx.globalAlpha = 0.62
-      ctx.font = `500 ${17 * s}px 'JetBrains Mono', monospace`
-      ctx.fillText('UPLOAD TO CLAIM', w / 2, h / 2 + 28 * s)
-      ctx.globalAlpha = 1
-    }
-  } else if (patch.image) {
-    // Uploaded brand artwork on a solid field.
-    const box = h - pad * 2
-    const ratio = patch.image.width / patch.image.height
-    let dw = box * ratio
-    let dh = box
-    const maxW = w - pad * 2
-    if (dw > maxW) {
-      dw = maxW
-      dh = maxW / ratio
-    }
-    ctx.drawImage(patch.image, (w - dw) / 2, (h - dh) / 2, dw, dh)
-  } else if (patch.style === 'plate') {
-    ctx.fillStyle = ink
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const text = patch.label.toUpperCase()
-    const size = fitText(ctx, text, w - pad * 2 - 20 * s, { size: 104 * s })
-    ctx.font = `700 ${size}px Inter, sans-serif`
-    ctx.fillText(text, w / 2, h / 2)
-  } else if (patch.style === 'strip') {
-    // Wordmark on a plain field. Rules or bars here read as a frame line once
-    // the patch is projected onto a body at a few centimetres.
-    ctx.fillStyle = ink
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const text = (patch.mark ?? patch.label).toUpperCase()
-    const size = fitText(ctx, text, w - pad * 2 - 40 * s, { size: 78 * s })
-    ctx.font = `700 ${size}px Inter, sans-serif`
-    ctx.fillText(text, w / 2, h / 2)
+    condensed(ctx, lines[0], cx, cy - h * 0.17, upper, ink)
+    condensed(ctx, lines[1], cx, cy + h * 0.17, lower, ink)
+  } else if (brand.mark === 'code') {
+    const codeSize = bw * 0.82
+    drawCode(ctx, cx - codeSize / 2, cy - codeSize / 2, codeSize, 15, ink, fill, brand.seed)
   } else {
-    // 'qr' — code on the left, wordmark on the right. Gallery thumbnails get a
-    // smaller code so the wordmark still has room to breathe.
-    const qrSize = Math.min(h - pad * 2, (w - pad * 2) * (detail ? 0.52 : 0.4))
-    drawMatrix(ctx, pad, (h - qrSize) / 2, qrSize, 9, ink, patch.seed, patch.color)
-
-    const textX = pad + qrSize + 22 * s
-    const available = w - pad - textX
-
-    ctx.fillStyle = ink
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'alphabetic'
-
-    // One wordmark, sized to fill the space — extra micro-copy only turns to
-    // mush once the patch is projected onto a body at a few centimetres.
-    const mark = (patch.mark ?? patch.label).toUpperCase()
-    const size = fitText(ctx, mark, available, { size: 58 * s })
-    ctx.font = `700 ${size}px Inter, sans-serif`
-    ctx.fillText(mark, textX, h / 2 + size * 0.34)
+    drawGlyph(ctx, cx, cy, bw * 0.78, ink)
   }
 
-  // Scuff pass — cheap, breaks up the flat vector fill.
-  const random = mulberry32(patch.seed + 7)
-  ctx.save()
-  roundRect(ctx, 0, 0, w, h, radius)
-  ctx.clip()
-  for (let i = 0; i < 120; i += 1) {
-    const rx = random() * w
-    const ry = random() * h
-    ctx.fillStyle = random() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-    ctx.fillRect(rx, ry, 1.5 * s + random() * 3 * s, 1.5 * s + random() * 3 * s)
-  }
   ctx.restore()
 
   return canvas
 }
 
-/** Canvas → GPU texture. Cached per patch id so rebuilds are free. */
+/** Canvas → GPU texture. Cached per brand + shape so slider drags are free. */
 const textureCache = new Map()
 
-export function patchTexture(patch) {
-  const key = `${patch.id}:${patch.image ? patch.image.src.length : 0}`
-  if (textureCache.has(key)) return textureCache.get(key)
+export function patchTexture(brand, shape = 'square') {
+  const key = `${brand.id}:${shape}`
+  const cached = textureCache.get(key)
+  if (cached) return cached
 
-  const texture = new THREE.CanvasTexture(createPatchCanvas(patch))
+  const texture = new THREE.CanvasTexture(createPatchCanvas(brand, { shape }))
   texture.colorSpace = THREE.SRGBColorSpace
   texture.anisotropy = 8
   texture.needsUpdate = true
@@ -255,58 +308,58 @@ export function patchTexture(patch) {
   return texture
 }
 
-/** Data URL for <img>/background usage in the HUD. */
-export function patchDataUrl(patch, width = 256) {
-  return createPatchCanvas(patch, { width }).toDataURL('image/png')
+/** Data URL for <img>/background usage in the panel. */
+export function patchDataUrl(brand, size = 256, shape = 'square') {
+  return createPatchCanvas(brand, { size, shape }).toDataURL('image/png')
 }
 
 /**
- * The square brand tile shown large on the sponsor card. The reference design
- * uses a rounded-square app icon, so this draws the brand's monogram on its
- * colour with a small code mark — no external assets.
+ * The square brand tile on the sponsor card: the same sticker language, so the
+ * card and the body read as one system.
  */
-const logoCache = new Map()
-
 export function logoDataUrl(brand, size = 256) {
-  const key = `${brand.id}:${size}`
-  const cached = logoCache.get(key)
-  if (cached) return cached
-
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
-  const ink = luminance(brand.color) > 0.55 ? '#0d1b12' : '#0b1116'
-  const radius = size * 0.22
 
-  ctx.fillStyle = brand.color
-  roundRect(ctx, 0, 0, size, size, radius)
+  const random = mulberry32(brand.seed)
+  const fill = brand.fill ?? LIME
+  const ink = luminance(fill) > 0.55 ? INK : '#f4f7f8'
+  const s = size / 256
+
+  ctx.fillStyle = fill
+  ctx.beginPath()
+  ctx.roundRect(0, 0, size, size, size * 0.24)
   ctx.fill()
 
-  if (brand.style === 'slot') {
+  if (brand.mark === 'empty') {
     ctx.save()
-    ctx.setLineDash([size * 0.05, size * 0.04])
+    ctx.setLineDash([10 * s, 8 * s])
     ctx.strokeStyle = ink
-    ctx.globalAlpha = 0.6
-    ctx.lineWidth = size * 0.02
-    roundRect(ctx, size * 0.18, size * 0.18, size * 0.64, size * 0.64, size * 0.12)
+    ctx.globalAlpha = 0.55
+    ctx.lineWidth = 3 * s
+    ctx.beginPath()
+    ctx.roundRect(size * 0.22, size * 0.22, size * 0.56, size * 0.56, size * 0.12)
     ctx.stroke()
     ctx.restore()
+    condensed(ctx, '+', size / 2, size / 2, size * 0.4, ink)
+  } else if (brand.mark === 'code') {
+    drawCode(ctx, size * 0.14, size * 0.14, size * 0.72, 11, ink, fill, brand.seed)
   } else {
-    ctx.fillStyle = ink
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const text = (brand.monogram ?? brand.label).toUpperCase()
-    const font = Math.min(size * 0.46, (size * 1.4) / Math.max(1, text.length))
-    ctx.font = `700 ${font}px Inter, sans-serif`
-    ctx.fillText(text, size / 2, size / 2 - size * 0.03)
-
-    // A small code mark in the corner gives the tile the feel of an app icon
-    // rather than a plain swatch repeating the name printed under it.
-    drawMatrix(ctx, size * 0.68, size * 0.68, size * 0.19, 4, ink, brand.seed, brand.color)
+    drawGlyph(ctx, size / 2, size / 2, size * 0.84, ink)
   }
 
-  const url = canvas.toDataURL('image/png')
-  logoCache.set(key, url)
-  return url
+  // A little scuff so the tile is not a flat vector fill.
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(0, 0, size, size, size * 0.24)
+  ctx.clip()
+  for (let i = 0; i < 90; i += 1) {
+    ctx.fillStyle = random() > 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.045)'
+    ctx.fillRect(random() * size, random() * size, 1 + random() * 3, 1 + random() * 3)
+  }
+  ctx.restore()
+
+  return canvas.toDataURL('image/png')
 }
