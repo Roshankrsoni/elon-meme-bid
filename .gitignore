@@ -1,0 +1,14 @@
+# Blender renders / caches - keep folders, ignore contents
+renders/final/*
+!renders/final/.gitkeep
+renders/previews/*
+!renders/previews/.gitkeep
+cache/*
+!cache/.gitkeep
+*.blend1
+*.blend2
+.DS_Store
+
+# Web build
+node_modules/
+dist/
