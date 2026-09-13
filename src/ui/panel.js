@@ -1,4 +1,13 @@
-import { logoDataUrl } from './patches.js'
+import { logoDataUrl, patchAspect } from './patches.js'
+import {
+  createBid,
+  getTopPaidBid,
+  isValidEmail,
+  normalizeUrl,
+  startCheckout,
+  uploadBrandImage,
+  validateLogoFile,
+} from '../lib/bidding.js'
 
 /** View counts are written as copy ("32,269"), so tolerate the punctuation. */
 const parseCount = (value) => {
@@ -43,6 +52,17 @@ export function initSponsors({ studio }) {
   const bidError = document.querySelector('#js-biderror')
   const bidSpot = document.querySelector('#bid-spot')
   const bidRemove = document.querySelector('#js-bidremove')
+
+  // Buyer details.
+  const bidName = document.querySelector('#js-bidname')
+  const bidEmail = document.querySelector('#js-bidemail')
+  const bidUrl = document.querySelector('#js-bidurl')
+  const bidImage = document.querySelector('#js-bidimage')
+  const bidPreview = document.querySelector('#js-bidpreview')
+  const bidFileTitle = document.querySelector('#js-bidfiletitle')
+  const bidFit = document.querySelector('#js-bidfit')
+  const bidSize = document.querySelector('#js-bidsize')
+  const bidDetailsError = document.querySelector('#js-bidderror')
 
   /* ------------------------------------------------------- sponsors modal */
 
@@ -137,22 +157,120 @@ export function initSponsors({ studio }) {
 
   let bidBrand = null
   let bidSpotItem = null
+  let bidCurrentAmount = 0
+  let bidBusy = false
+  let previewUrl = null
 
-  /** Claims the agreed spot outright — every bid is tied to one spot. */
-  const confirmBid = (amount) => {
+  const SHAPE_WORDS = { square: 'square print', band: 'strap', wide: 'wide banner' }
+
+  /** Sticker-size suggestion so the buyer's logo fits the spot it lands on. */
+  const renderSizeHint = (spot) => {
+    if (!spot) {
+      bidSize.hidden = true
+      return
+    }
+    const size = Math.round(spot.sizeCm ?? 12)
+    const shape = SHAPE_WORDS[spot.shape] ?? 'print'
+    bidSize.textContent =
+      `Best on the ${spot.def.label.toLowerCase()}: ≈${size} cm ${shape} — ` +
+      `a clean, squarish logo file fills it best.`
+    bidSize.hidden = false
+  }
+
+  /** Fit note once a logo file is picked, against the spot's proportions. */
+  const renderFitNote = (file) => {
+    if (!file || !bidSpotItem) {
+      bidFit.textContent = 'PNG or JPG · printed as the sticker'
+      return
+    }
+    const url = URL.createObjectURL(file)
+    const probe = new Image()
+    probe.onload = () => {
+      URL.revokeObjectURL(url)
+      // Stale pick (dialog reopened or another file chosen meanwhile).
+      if (bidImage.files?.[0] !== file) return
+      const ratio = probe.naturalWidth / probe.naturalHeight / patchAspect(bidSpotItem.shape)
+      bidFit.textContent =
+        ratio > 1.5
+          ? 'Wide file — it will shrink to fit the sticker height.'
+          : ratio < 1 / 1.5
+            ? 'Tall file — it will shrink to fit the sticker width.'
+            : 'Good proportions — fills the sticker nicely.'
+    }
+    probe.onerror = () => URL.revokeObjectURL(url)
+    probe.src = url
+  }
+
+  const readDetails = () => {
+    const name = bidName.value.trim()
+    const email = bidEmail.value.trim()
+    const productUrl = normalizeUrl(bidUrl.value)
+    const file = bidImage.files?.[0] ?? null
+    if (name.length < 2) return { error: 'Give your brand a name (2+ characters).' }
+    if (!isValidEmail(email)) return { error: 'Enter a valid email for the receipt.' }
+    if (!/^https?:\/\/.+\..+/.test(productUrl)) {
+      return { error: 'Enter a valid product URL, e.g. https://yourbrand.com.' }
+    }
+    const fileError = validateLogoFile(file)
+    if (fileError) return { error: fileError }
+    return { name, email, productUrl, file }
+  }
+
+  const setBidBusy = (busy, amount) => {
+    bidBusy = busy
+    bidTakeBtn.disabled = busy
+    bidSubmit.disabled = busy
+    bidTakeBtn.querySelector('.bidtake__label').textContent = busy ? 'Processing…' : 'Continue to payment'
+    if (!busy && amount !== undefined) bidTakePrice.textContent = money(amount)
+  }
+
+  /**
+   * Records the bid, then hands off to Dodo checkout. The spot is only
+   * claimed once the webhook confirms payment (see settlePaymentReturn).
+   */
+  const confirmBid = async (amount) => {
+    if (bidBusy) return
     const brand = bidBrand
     const spot = bidSpotItem
-    closeBid()
     if (!brand || !spot) return
-    studio.assign(spot.id, brand)
-    renderSponsors()
+
+    const details = readDetails()
+    if (details.error) {
+      bidDetailsError.textContent = details.error
+      bidDetailsError.hidden = false
+      return
+    }
+    bidDetailsError.hidden = true
+
+    setBidBusy(true)
+    try {
+      const imageUrl = await uploadBrandImage(details.file, crypto.randomUUID())
+      const bid = await createBid({
+        spot_id: spot.id,
+        spot_label: spot.def.label,
+        amount_cents: Math.round(amount * 100),
+        brand_name: details.name,
+        email: details.email,
+        product_url: details.productUrl,
+        brand_image_url: imageUrl,
+        suggested_size_cm: Math.round(spot.sizeCm ?? 12),
+      })
+      await startCheckout(bid.id)
+      // A successful checkout leaves this page for Dodo — no UI to restore.
+    } catch (err) {
+      bidDetailsError.textContent = err instanceof Error ? err.message : 'Something went wrong.'
+      bidDetailsError.hidden = false
+      setBidBusy(false, amount)
+    }
   }
 
   function openBid(brand, spot = null) {
     bidBrand = brand
     bidSpotItem = spot
+    bidBusy = false
 
     const current = parseCount(brand.amount)
+    bidCurrentAmount = current
     const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
 
     const open = brand.mark === 'empty'
@@ -177,6 +295,23 @@ export function initSponsors({ studio }) {
     bidAmount.placeholder = money(current + 1).slice(1)
     bidError.hidden = true
 
+    // Buyer details start fresh; default the name to the standing brand.
+    bidName.value = open ? '' : brand.label
+    bidEmail.value = ''
+    bidUrl.value = ''
+    bidImage.value = ''
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      previewUrl = null
+    }
+    bidPreview.src = ''
+    bidPreview.hidden = true
+    bidFileTitle.textContent = 'Upload brand image'
+    bidDetailsError.hidden = true
+    setBidBusy(false, current + 1)
+    renderSizeHint(spot)
+    renderFitNote(null)
+
     bidModal.hidden = false
     // Let the browser paint the dialog before the open transition starts.
     requestAnimationFrame(() => bidModal.classList.add('is-open'))
@@ -184,6 +319,22 @@ export function initSponsors({ studio }) {
     // Focus the primary action, not the text field — focusing the field pops
     // the keyboard over the button on phones.
     bidTakeBtn.focus({ preventScroll: true })
+
+    // Paid bids on Supabase outrank the catalogue price — refresh the line
+    // without disturbing a dialog that has since moved on.
+    if (spot && !open) {
+      getTopPaidBid(spot.id)
+        .then((top) => {
+          if (!top || bidSpotItem !== spot || bidModal.hidden) return
+          const live = Math.max(current, Math.floor(top.amount))
+          if (live === current) return
+          bidCurrentAmount = live
+          bidCurrent.textContent = money(live)
+          if (!bidBusy) bidTakePrice.textContent = money(live + 1)
+          bidAmount.placeholder = money(live + 1).slice(1)
+        })
+        .catch(() => {})
+    }
   }
 
   function closeBid() {
@@ -206,8 +357,8 @@ export function initSponsors({ studio }) {
   }
 
   bidTakeBtn.addEventListener('click', () => {
-    if (!bidBrand) return
-    confirmBid(parseCount(bidBrand.amount) + 1)
+    if (!bidBrand || bidBusy) return
+    confirmBid(bidCurrentAmount + 1)
   })
 
   // Keep the field reading as money while it is typed into.
@@ -218,8 +369,7 @@ export function initSponsors({ studio }) {
   })
 
   const submitCustom = () => {
-    if (!bidBrand) return
-    const current = parseCount(bidBrand.amount)
+    if (!bidBrand || bidBusy) return
     const entered = Math.floor(Number(bidAmount.value.replace(/[^0-9]/g, '')))
 
     if (!Number.isFinite(entered) || entered <= 0) {
@@ -228,8 +378,8 @@ export function initSponsors({ studio }) {
       bidAmount.focus()
       return
     }
-    if (entered <= current) {
-      bidError.textContent = `Your bid has to beat the current ${money(current)}.`
+    if (entered <= bidCurrentAmount) {
+      bidError.textContent = `Your bid has to beat the current ${money(bidCurrentAmount)}.`
       bidError.hidden = false
       bidAmount.focus()
       return
@@ -253,6 +403,35 @@ export function initSponsors({ studio }) {
       studio.clearZone(spot.id)
       renderSponsors()
     }
+  })
+
+  // Brand image picker: instant preview plus a fit note for this spot.
+  bidImage.addEventListener('change', () => {
+    const file = bidImage.files?.[0] ?? null
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      previewUrl = null
+    }
+    bidDetailsError.hidden = true
+    if (!file) {
+      bidPreview.src = ''
+      bidPreview.hidden = true
+      bidFileTitle.textContent = 'Upload brand image'
+      renderFitNote(null)
+      return
+    }
+    const fileError = validateLogoFile(file)
+    if (fileError) {
+      bidDetailsError.textContent = fileError
+      bidDetailsError.hidden = false
+      bidImage.value = ''
+      return
+    }
+    previewUrl = URL.createObjectURL(file)
+    bidPreview.src = previewUrl
+    bidPreview.hidden = false
+    bidFileTitle.textContent = file.name
+    renderFitNote(file)
   })
 
   bidClose.addEventListener('click', closeBid)

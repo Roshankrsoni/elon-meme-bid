@@ -150,12 +150,43 @@ The bust is also displayed at life scale for what it is — ~1.12 m for a
 head-to-mid-thigh span — which is what makes the centimetre patch sizes in the
 UI mean something on screen.
 
+## Bidding backend (Supabase + Dodo Payments)
+
+Bids are real once this is wired up. Until then the page runs fine — the bid
+form just explains that bidding is switched off.
+
+**How a bid flows:** the buyer fills brand name, email, product URL and logo
+in the bid dialog → the logo uploads to the `brand-logos` storage bucket →
+a `pending` row lands in `bids` → the `create-checkout` edge function mints a
+one-time Dodo product at the exact bid amount and returns a hosted checkout
+URL → Dodo redirects back to `/?bid=<id>` → the `dodo-webhook` marks the bid
+`paid` → the client prints the winner's logo on the body (top paid bid wins).
+
+1. **Supabase project** — create one, then run
+   `supabase/migrations/0001_bids.sql` in the SQL editor (bids table, RLS,
+   `brand-logos` bucket).
+2. **Edge functions** — dashboard → Edge Functions → New function, paste
+   `supabase/functions/create-checkout/index.ts` and
+   `supabase/functions/dodo-webhook/index.ts`. Secrets for both:
+   `DODO_API_KEY`, `DODO_ENV=test` (or `live`).
+   Extra secret for `dodo-webhook`: `DODO_WEBHOOK_SECRET` (from the webhook
+   endpoint's Overview tab in the Dodo dashboard).
+3. **Dodo webhook** — dashboard → Developer → Webhooks, endpoint
+   `https://<project-ref>.supabase.co/functions/v1/dodo-webhook`,
+   subscribed to `payment.succeeded`, `payment.failed`, `payment.cancelled`.
+4. **Frontend keys** — copy `.env.example` to `.env` with
+   `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Test mode first:
+   Dodo test cards, `DODO_ENV=test`.
+5. Amounts are USD cents; every checkout creates one throwaway Dodo product
+   per bid (auction prices can't come from a fixed catalogue).
+
 ## Not built yet
 
-This is the front end only. There is no backend, no accounts, no bidding, no
-payment and no persistence — placed patches live in memory and are gone on
-reload. Patch artwork is generated procedurally and uploaded logos are read on
-the client with `URL.createObjectURL`; nothing is uploaded anywhere.
+Local placements still live in memory and are gone on reload; only bids that
+go through checkout persist (in Supabase). There are no accounts — email is
+collected per bid for the receipt. Patch artwork is generated procedurally;
+buyer logos upload to Supabase storage and are printed contain-fit on the
+winning sticker.
 
 ## Project layout
 
@@ -163,6 +194,8 @@ the client with `URL.createObjectURL`; nothing is uploaded anywhere.
 index.html               markup + all HUD overlays
 src/main.js              renderer, camera, bloom, resize, boot
 src/config.js            copy and tunables
+src/lib/supabase.js      Supabase client (null until .env keys exist)
+src/lib/bidding.js       bid records, logo upload, checkout, return settlement
 src/scene/environment.js arena, dais, beam, lights, environment map
 src/scene/model.js       scan loading, normalisation, holographic fade
 src/scene/anatomy.js     measures the body's axes and anatomical landmarks

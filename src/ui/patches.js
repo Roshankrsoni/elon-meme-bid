@@ -298,6 +298,21 @@ function drawStrap(ctx, brand, box, fill, ink) {
 }
 
 /**
+ * Draws an uploaded logo contain-fit inside a box, so any aspect lands
+ * uncropped with even margins.
+ */
+function drawBrandImage(ctx, image, box, padScale = 0.12) {
+  if (!image.naturalWidth || !image.naturalHeight) return
+  const pad = Math.min(box.w, box.h) * padScale
+  const dw = box.w - pad * 2
+  const dh = box.h - pad * 2
+  const scale = Math.min(dw / image.naturalWidth, dh / image.naturalHeight)
+  const w = image.naturalWidth * scale
+  const h = image.naturalHeight * scale
+  ctx.drawImage(image, box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h)
+}
+
+/**
  * Renders one sticker and returns the canvas.
  * `shape` is 'square' (chest, back, shoulder), 'band' (limbs) or 'wide' (waist).
  * `index` is the 1-based slot number, drawn small in the corner when set.
@@ -346,7 +361,12 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
   ctx.save()
   ctx.clip(stickerPath)
 
-  if (isEmpty) {
+  if (brand.image?.naturalWidth > 0) {
+    // A buyer's uploaded logo: light stock base, logo printed contain-fit.
+    ctx.fillStyle = '#edf2f5'
+    ctx.fill(stickerPath)
+    drawBrandImage(ctx, brand.image, box)
+  } else if (isEmpty) {
     // A dashed inner rule plus a bold "+": the universal "claim me" slot.
     ctx.save()
     ctx.setLineDash([short * 0.07, short * 0.055])
@@ -440,7 +460,8 @@ export function logoDataUrl(brand, size = 256) {
   const ctx = canvas.getContext('2d')
 
   const random = mulberry32(brand.seed)
-  const fill = brand.fill ?? LIME
+  const hasImage = brand.image?.naturalWidth > 0
+  const fill = hasImage ? '#edf2f5' : (brand.fill ?? LIME)
   const ink = inkOn(fill)
 
   ctx.fillStyle = fill
@@ -448,7 +469,9 @@ export function logoDataUrl(brand, size = 256) {
   ctx.roundRect(0, 0, size, size, size * 0.24)
   ctx.fill()
 
-  if (brand.mark === 'empty') {
+  if (hasImage) {
+    drawBrandImage(ctx, brand.image, { x: 0, y: 0, w: size, h: size }, 0.16)
+  } else if (brand.mark === 'empty') {
     ctx.save()
     ctx.setLineDash([size * 0.04, size * 0.035])
     ctx.strokeStyle = ink

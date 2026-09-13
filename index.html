@@ -4,11 +4,33 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#050810" />
-    <title>Sponsor My Body — Bid for space on the body</title>
+    <title>Sponsor My Elon — Bid for space on the body</title>
     <meta
       name="description"
       content="An athlete's body as live billboard space. Place your brand on the body, track the race, own the moment."
     />
+
+    <!-- Favicons (cut-out of the wall portrait, transparent background) -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+
+    <!-- Social cards (og:image needs the absolute deploy URL once live) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sponsor My Elon — Bid for space on the body" />
+    <meta
+      property="og:description"
+      content="An athlete's body as live billboard space. Place your brand on the body, track the race, own the moment."
+    />
+    <meta property="og:image" content="/og-image.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sponsor My Elon — Bid for space on the body" />
+    <meta
+      name="twitter:description"
+      content="An athlete's body as live billboard space. Place your brand on the body, track the race, own the moment."
+    />
+    <meta name="twitter:image" content="/og-image.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -152,10 +174,36 @@
           <p class="bidmodal__note" id="bid-note"></p>
 
           <button type="button" class="bidtake" id="js-bidtake">
-            <span class="bidtake__label">Take this spot</span>
+            <span class="bidtake__label">Continue to payment</span>
             <span class="bidtake__price" id="bid-take">$8,001</span>
           </button>
-          <p class="bidmodal__hint">Outbids the standing price by $1 and claims it instantly.</p>
+          <p class="bidmodal__hint">Outbids the standing price by $1. You pay securely — the spot updates once payment succeeds.</p>
+
+          <div class="bidbrand">
+            <p class="bidbrand__title">Your brand on this spot</p>
+            <p class="bidbrand__size" id="js-bidsize"></p>
+            <label class="bidfield">
+              <span>Brand name</span>
+              <input type="text" id="js-bidname" maxlength="24" placeholder="Your brand" autocomplete="off" />
+            </label>
+            <label class="bidfield">
+              <span>Email for the receipt</span>
+              <input type="email" id="js-bidemail" placeholder="you@brand.com" autocomplete="email" />
+            </label>
+            <label class="bidfield">
+              <span>Product URL</span>
+              <input type="url" id="js-bidurl" inputmode="url" placeholder="https://yourbrand.com/product" autocomplete="off" />
+            </label>
+            <label class="bidfile" id="js-bidfilelabel">
+              <input type="file" id="js-bidimage" accept="image/*" hidden />
+              <img class="bidfile__preview" id="js-bidpreview" alt="" hidden />
+              <span class="bidfile__text">
+                <span class="bidfile__title" id="js-bidfiletitle">Upload brand image</span>
+                <span class="bidfile__hint" id="js-bidfit">PNG or JPG · printed as the sticker</span>
+              </span>
+            </label>
+            <p class="bidcustom__error" id="js-bidderror" role="alert" hidden></p>
+          </div>
 
           <div class="bidcustom">
             <label for="js-bidamount">Or name your price</label>
@@ -180,6 +228,8 @@
         </div>
       </div>
     </div>
+
+    <div class="bidtoast" id="js-toast" role="status" hidden></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -10,6 +10,7 @@ import { loadAvatar } from './scene/model.js'
 import { BrandSlots } from './scene/brandSlots.js'
 import { initHud } from './ui/hud.js'
 import { initSponsors } from './ui/panel.js'
+import { settlePaymentReturn, showToast } from './lib/bidding.js'
 import { camera as cameraConfig, orbit } from './config.js'
 
 const canvas = document.querySelector('#scene')
@@ -404,6 +405,17 @@ async function boot() {
 
   // Projects every zone onto the body (setAvatar also builds the markers).
   studio.setAvatar(avatar)
+
+  // Returning from Dodo checkout with ?bid=<id>: confirm payment and print
+  // the winner's logo on the body.
+  settlePaymentReturn(studio)
+    .then((bid) => {
+      if (!bid) return
+      studio.focus(bid.spot_id)
+      panel.openSponsors()
+      showToast(`Payment confirmed — the ${bid.spot_label} is yours.`)
+    })
+    .catch(() => {})
 
   setProgress(1, 'Ready')
   requestAnimationFrame(() => loader.classList.add('is-done'))
