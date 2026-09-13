@@ -553,6 +553,15 @@ body.has-studio .hud__block--feed {
   backdrop-filter: blur(14px);
 }
 
+.profilelink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 999px;
+}
+
 .avatar {
   width: 40px;
   height: 40px;

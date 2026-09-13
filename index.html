@@ -46,25 +46,12 @@
     <!-- ── HUD ──────────────────────────────────────────────────────────── -->
     <div class="hud">
       <section class="hud__block hud__block--tl" aria-label="Event overview">
-        <h1 class="brand">Sponsor My Body</h1>
-        <p class="brand__sub">
-          I'm paid <strong id="js-earnings">$112,058</strong> to race HYROX
-        </p>
-        <p class="brand__meta">
-          <span id="js-bidding">Bidding closed</span>
-          <span class="dot" aria-hidden="true"></span>
-          <button type="button" class="linkbtn" id="js-how">How it works?</button>
-        </p>
+        <h1 class="brand">Sponsor My Elon</h1>
+        <p class="brand__sub">Bid for space on the body.</p>
 
         <div class="iconrow" role="toolbar" aria-label="Stream controls">
           <button type="button" class="iconbtn iconbtn--live is-on" id="js-stream" aria-pressed="true" title="Stream status">
             <span class="pulse" aria-hidden="true"></span>
-          </button>
-          <button type="button" class="iconbtn" id="js-mute" aria-pressed="false" title="Mute">
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M3 6h2.2L8.5 3.2v9.6L5.2 10H3z" />
-              <path class="wave" d="M10.6 5.6a3.2 3.2 0 0 1 0 4.8" />
-            </svg>
           </button>
           <button type="button" class="iconbtn" id="js-full" title="Fullscreen">
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -81,7 +68,7 @@
       </section>
 
       <section class="hud__block hud__block--tr" aria-label="Race countdown">
-        <span class="kicker">Race in</span>
+        <span class="kicker">Race time</span>
         <div class="countdown" id="js-countdown" role="timer" aria-live="off">
           <span class="countdown__seg"><b>07</b><i>days</i></span>
           <span class="countdown__sep">:</span>
@@ -92,11 +79,6 @@
           <span class="countdown__seg"><b>43</b><i>sec</i></span>
         </div>
       </section>
-
-      <figure class="hud__block hud__block--feed" aria-label="Secondary camera">
-        <canvas id="js-feed" width="360" height="540"></canvas>
-        <figcaption><span class="pulse" aria-hidden="true"></span> Cam 2 · Gym</figcaption>
-      </figure>
 
       <section class="hud__block hud__block--bl" aria-label="Live activity">
         <div class="jotform-slot">
@@ -111,11 +93,13 @@
       </div>
 
       <section class="hud__block hud__block--br" aria-label="Athlete profile">
-        <canvas class="avatar" id="js-avatar" width="96" height="96"></canvas>
-        <div class="profile">
-          <span class="profile__id">I'm <b>@marc.lou</b> <i aria-hidden="true">↗</i></span>
-          <span class="profile__bio">100% natty btw</span>
-        </div>
+        <a class="profilelink" href="https://x.com/RoshanKrSoni" target="_blank" rel="noreferrer" aria-label="@RoshanKrSoni on X">
+          <canvas class="avatar" id="js-avatar" width="96" height="96"></canvas>
+          <div class="profile">
+            <span class="profile__id">I'm <b>@RoshanKrSoni</b> <i aria-hidden="true">↗</i></span>
+            <span class="profile__bio">100% natty btw</span>
+          </div>
+        </a>
       </section>
     </div>
 

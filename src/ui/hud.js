@@ -1,25 +1,23 @@
-import { leaderboard, site } from '../config.js'
-import { paintAvatar, paintFeed } from './placeholders.js'
+import { leaderboard, profile, site } from '../config.js'
+import { avatarPhoto } from './placeholders.js'
 
 const pad = (value) => String(Math.max(0, Math.floor(value))).padStart(2, '0')
 
 /* ----------------------------------------------------------- countdown --- */
 
 function initCountdown(root) {
-  const offset = site.raceOffset
-  const target =
-    Date.now() +
-    (((offset.days * 24 + offset.hours) * 60 + offset.minutes) * 60 + offset.seconds) * 1000
+  const started = Date.now()
 
   const outputs = [...root.querySelectorAll('.countdown__seg b')]
 
+  // Counts up from page load — time since the race clock started.
   const render = () => {
-    const remaining = Math.max(0, target - Date.now()) / 1000
+    const elapsed = Math.max(0, Date.now() - started) / 1000
     const values = [
-      pad(Math.floor(remaining / 86400)),
-      pad(Math.floor((remaining % 86400) / 3600)),
-      pad(Math.floor((remaining % 3600) / 60)),
-      pad(Math.floor(remaining % 60)),
+      pad(Math.floor(elapsed / 86400)),
+      pad(Math.floor((elapsed % 86400) / 3600)),
+      pad(Math.floor((elapsed % 3600) / 60)),
+      pad(Math.floor(elapsed % 60)),
     ]
 
     outputs.forEach((node, index) => {
@@ -36,6 +34,37 @@ function initCountdown(root) {
 
 const VISIBLE_ROWS = 4
 
+/** Clocks read in the visitor's own timezone, not each country's. */
+const visitorTz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
+
+const visitorFmt = new Intl.DateTimeFormat('en-GB', {
+  timeZone: visitorTz,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+/** Short zone label for the visitor (IST, EST, JST … or a GMT offset). */
+const visitorCode = (() => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: visitorTz,
+      timeZoneName: 'short',
+    }).formatToParts(new Date())
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? visitorTz
+  } catch {
+    return visitorTz
+  }
+})()
+
+function liveTime() {
+  try {
+    return visitorFmt.format(new Date())
+  } catch {
+    return '--:--'
+  }
+}
+
 function tickerRow(entry, index) {
   const li = document.createElement('li')
   li.style.animationDelay = `${index * 40}ms`
@@ -50,7 +79,8 @@ function tickerRow(entry, index) {
 
   const time = document.createElement('span')
   time.className = 't'
-  time.textContent = entry.time
+  time.textContent = `${liveTime()} ${visitorCode}`
+  time.title = visitorTz
 
   li.append(flag, who, time)
   return li
@@ -58,6 +88,7 @@ function tickerRow(entry, index) {
 
 function initTicker(root) {
   let cursor = 0
+  let elapsed = 0
 
   const render = () => {
     root.replaceChildren(
@@ -67,37 +98,40 @@ function initTicker(root) {
     )
   }
 
+  // Refreshes the clocks in place every second; countries rotate every 5th tick.
+  const refreshTimes = () => {
+    const rows = root.children
+    for (let i = 0; i < rows.length; i += 1) {
+      const entry = leaderboard[(cursor + i) % leaderboard.length]
+      const node = rows[i].querySelector('.t')
+      if (node) node.textContent = `${liveTime()} ${visitorCode}`
+    }
+  }
+
   render()
 
   // A slow shuffle so the board reads as live activity. Purely cosmetic.
-  // Countries rotate once every 5 seconds.
+  // Countries rotate once every 5 seconds; clocks tick every second.
   return setInterval(() => {
-    cursor = (cursor + 1) % leaderboard.length
-    root.prepend(tickerRow(leaderboard[(cursor + VISIBLE_ROWS - 1) % leaderboard.length], 0))
-    while (root.children.length > VISIBLE_ROWS) root.lastElementChild.remove()
-  }, 5000)
+    elapsed += 1
+    if (elapsed % 5 === 0) {
+      cursor = (cursor + 1) % leaderboard.length
+      root.prepend(tickerRow(leaderboard[(cursor + VISIBLE_ROWS - 1) % leaderboard.length], 0))
+      while (root.children.length > VISIBLE_ROWS) root.lastElementChild.remove()
+    }
+    refreshTimes()
+  }, 1000)
 }
 
 /* ------------------------------------------------------------------ hud --- */
 
 export function initHud({ onResetCamera, onToggleSponsors }) {
-  document.querySelector('#js-earnings').textContent = site.earnings
-  document.querySelector('#js-bidding').textContent = site.biddingLabel
-
   const timers = [
     initCountdown(document.querySelector('#js-countdown')),
     initTicker(document.querySelector('#js-ticker')),
   ]
 
-  paintAvatar(document.querySelector('#js-avatar'))
-  paintFeed(document.querySelector('#js-feed'))
-
-  const mute = document.querySelector('#js-mute')
-  mute.addEventListener('click', () => {
-    const off = mute.getAttribute('aria-pressed') !== 'true'
-    mute.setAttribute('aria-pressed', String(off))
-    mute.classList.toggle('is-off', off)
-  })
+  avatarPhoto(document.querySelector('#js-avatar'), profile.photo)
 
   document.querySelector('#js-full').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -108,10 +142,6 @@ export function initHud({ onResetCamera, onToggleSponsors }) {
   stream.addEventListener('click', () => stream.classList.toggle('is-on'))
 
   document.querySelector('#js-reset').addEventListener('click', onResetCamera)
-  document.querySelector('#js-how').addEventListener('click', () => {
-    document.querySelector('#js-hint').textContent =
-      'Pick a patch, then tap the body to stick it on.'
-  })
   document.querySelector('#js-sponsors').addEventListener('click', onToggleSponsors)
 
   return {

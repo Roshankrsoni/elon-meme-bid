@@ -177,7 +177,7 @@ export function brandSlotDefs(a) {
    * the pair instead of sitting at its mirrored distance from the spine.
    * Slot 9 gets only a small nudge back toward 10 to keep the pair balanced.
    */
-  const backTuck = (side) => (side < 0 ? torsoLat(backFrac, 0.18) : torsoLat(backFrac, -0.08))
+  const backTuck = (side) => (side < 0 ? torsoLat(backFrac, 0.2) : torsoLat(backFrac, -0.08))
   /** How hard a slot is pulled to the outermost surface rather than the best-facing one. */
   const LIMB_BIAS = 6.5
 
@@ -293,7 +293,7 @@ export function brandSlotDefs(a) {
       minFit: 0.85,
       scan: 0.03,
       brandId: 'pulse',
-      anchor: () => a.toPoint(spine + backShift + torsoLat(waistFrac, 0.13), waistFrac, 0),
+      anchor: () => a.toPoint(spine + backShift + torsoLat(waistFrac, 0.18), waistFrac, 0),
       facing: facingBack,
     },
   ]

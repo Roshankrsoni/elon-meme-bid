@@ -5,19 +5,28 @@
 export const site = {
   earnings: '$112,058',
   biddingLabel: 'Bidding closed',
-  raceOffset: { days: 7, hours: 1, minutes: 20, seconds: 43 },
+  raceOffset: { days: 0, hours: 0, minutes: 0, seconds: 0 },
 }
 
-/** Leaderboard entries. `flag` is an emoji so there are no asset dependencies. */
+/** Athlete profile card (bottom-right HUD). */
+export const profile = {
+  handle: '@RoshanKrSoni',
+  photo: 'https://unavatar.io/twitter/RoshanKrSoni',
+}
+
+/**
+ * Leaderboard entries. `flag` is an emoji so there are no asset dependencies.
+ * `tz` is the IANA timezone the live clock reads, `code` its short label.
+ */
 export const leaderboard = [
-  { flag: '🇵🇸', name: 'Palestine', time: '12:07:45' },
-  { flag: '🇹🇭', name: 'Thailand', time: '12:07:49' },
-  { flag: '🇺🇬', name: 'Uganda', time: '12:07:50' },
-  { flag: '🇧🇷', name: 'Brazil', time: '12:07:52' },
-  { flag: '🇰🇪', name: 'Kenya', time: '12:07:56' },
-  { flag: '🇯🇵', name: 'Japan', time: '12:08:01' },
-  { flag: '🇳🇱', name: 'Netherlands', time: '12:08:04' },
-  { flag: '🇿🇦', name: 'South Africa', time: '12:08:09' },
+  { flag: '🇵🇸', name: 'Palestine', tz: 'Asia/Gaza', code: 'EET' },
+  { flag: '🇹🇭', name: 'Thailand', tz: 'Asia/Bangkok', code: 'ICT' },
+  { flag: '🇺🇬', name: 'Uganda', tz: 'Africa/Kampala', code: 'EAT' },
+  { flag: '🇧🇷', name: 'Brazil', tz: 'America/Sao_Paulo', code: 'BRT' },
+  { flag: '🇰🇪', name: 'Kenya', tz: 'Africa/Nairobi', code: 'EAT' },
+  { flag: '🇯🇵', name: 'Japan', tz: 'Asia/Tokyo', code: 'JST' },
+  { flag: '🇳🇱', name: 'Netherlands', tz: 'Europe/Amsterdam', code: 'CET' },
+  { flag: '🇿🇦', name: 'South Africa', tz: 'Africa/Johannesburg', code: 'SAST' },
 ]
 
 export const model = {
@@ -61,7 +70,7 @@ export const camera = {
    * The camera pulls back far enough to fit this box with margin, so the bust
    * never crops on wide, tall or studio-narrowed viewports.
    */
-  framing: { height: 1.32, width: 1.05, margin: 1.05 },
+  framing: { height: 1.32, width: 1.05, margin: 1.22 },
   minDistance: 0.55,
   maxDistance: 4.5,
   /** How close a zone focus pulls in, in metres from the zone. */

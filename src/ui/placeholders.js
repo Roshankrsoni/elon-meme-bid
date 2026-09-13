@@ -41,8 +41,7 @@ function silhouette(ctx, cx, cy, scale, fill) {
 }
 
 /** Small circular profile picture. */
-export function paintAvatar(canvas) {
-  const ctx = canvas.getContext('2d')
+export function paintAvatar(canvas) {  const ctx = canvas.getContext('2d')
   const { width: w, height: h } = canvas
 
   const bg = ctx.createLinearGradient(0, 0, w, h)
@@ -146,4 +145,30 @@ export function paintFeed(canvas) {
   vignette.addColorStop(1, 'rgba(0,0,0,0.55)')
   ctx.fillStyle = vignette
   ctx.fillRect(0, 0, w, h)
+}
+
+/**
+ * Draws a profile photo into the avatar canvas (cover-fit, circular clip).
+ * Paints the abstract art first so there is always something sensible if the
+ * photo fails to load.
+ */
+export function avatarPhoto(canvas, url) {
+  paintAvatar(canvas)
+  if (!url) return
+
+  const image = new Image()
+  image.onload = () => {
+    const ctx = canvas.getContext('2d')
+    const { width: w, height: h } = canvas
+    const scale = Math.max(w / image.width, h / image.height)
+    const dw = image.width * scale
+    const dh = image.height * scale
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(image, (w - dw) / 2, (h - dh) / 2, dw, dh)
+    ctx.restore()
+  }
+  image.src = url
 }
