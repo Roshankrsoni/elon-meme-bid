@@ -9,7 +9,7 @@ import { buildEnvironment } from './scene/environment.js'
 import { loadAvatar } from './scene/model.js'
 import { BrandSlots } from './scene/brandSlots.js'
 import { initHud } from './ui/hud.js'
-import { initStudio } from './ui/panel.js'
+import { initSponsors } from './ui/panel.js'
 import { camera as cameraConfig, orbit } from './config.js'
 
 const canvas = document.querySelector('#scene')
@@ -51,10 +51,45 @@ const camera = new THREE.PerspectiveCamera(
 )
 camera.position.fromArray(cameraConfig.position)
 
+/* ---------------------------------------------------------- camera moves -- */
+
+const HOME_TARGET = new THREE.Vector3().fromArray(cameraConfig.target)
+const HOME_DIRECTION = new THREE.Vector3()
+  .fromArray(cameraConfig.position)
+  .sub(new THREE.Vector3().fromArray(cameraConfig.target))
+  .normalize()
+
+/*
+ * Turntable lock: the figure may only spin left/right (azimuth). The polar
+ * angle is frozen, so dragging up/down does nothing. minPolarAngle ===
+ * maxPolarAngle is how OrbitControls expresses "no vertical orbit".
+ *
+ * ELEVATION_LIFT_DEG shifts the locked view off the config position, as if
+ * the visitor grabbed it and tipped it. Positive = camera higher
+ * (more top-down), negative = camera lower (more eye-level). Tweak this
+ * one number to move the default tilt.
+ */
+const ELEVATION_LIFT_DEG = -10
+const _basePolar = Math.acos(THREE.MathUtils.clamp(HOME_DIRECTION.y, -1, 1))
+const FIXED_POLAR_ANGLE = THREE.MathUtils.clamp(
+  _basePolar - THREE.MathUtils.degToRad(ELEVATION_LIFT_DEG),
+  0.15,
+  Math.PI / 2 - 0.02,
+)
+// Rebuild the home direction on the locked cone, keeping the same azimuth.
+{
+  const _az = Math.atan2(HOME_DIRECTION.x, HOME_DIRECTION.z)
+  HOME_DIRECTION.set(
+    Math.sin(_az) * Math.sin(FIXED_POLAR_ANGLE),
+    Math.cos(FIXED_POLAR_ANGLE),
+    Math.cos(_az) * Math.sin(FIXED_POLAR_ANGLE),
+  ).normalize()
+}
+
 /* -------------------------------------------------------------- controls -- */
 
 const controls = new OrbitControls(camera, canvas)
-controls.target.fromArray(cameraConfig.target)
+controls.target.copy(HOME_TARGET)
 controls.enableDamping = true
 controls.dampingFactor = 0.06
 controls.enablePan = false
@@ -62,8 +97,8 @@ controls.rotateSpeed = 0.72
 controls.zoomSpeed = 0.85
 controls.minDistance = cameraConfig.minDistance
 controls.maxDistance = cameraConfig.maxDistance
-controls.minPolarAngle = 0.25
-controls.maxPolarAngle = Math.PI / 2 - 0.02
+controls.minPolarAngle = FIXED_POLAR_ANGLE
+controls.maxPolarAngle = FIXED_POLAR_ANGLE
 /*
  * OrbitControls expresses autoRotate in "2π/60 per second" units, so 1.0 is
  * 6°/s. Idle spin pauses itself while the visitor drags; `userPaused` extends
@@ -76,6 +111,51 @@ controls.update()
 /* -------------------------------------------------------------- environment */
 
 const environment = buildEnvironment(scene, renderer)
+
+/* -------------------------------------------------------- credit links --- */
+
+/*
+ * The framed prints can carry a creator plaque (see WALL_PHOTO frames in
+ * environment.js). A clean tap on one opens the creator's original post;
+ * a drag still orbits.
+ */
+{
+  const links = environment.creditLinks ?? []
+  if (links.length > 0) {
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    let downAt = null
+
+    const pickLink = (event) => {
+      const rect = canvas.getBoundingClientRect()
+      ndc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      )
+      raycaster.setFromCamera(ndc, camera)
+      return raycaster.intersectObjects(links, false)[0]?.object ?? null
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      downAt = { x: event.clientX, y: event.clientY }
+    })
+    // Listened on the window so a release just off the canvas still counts.
+    window.addEventListener('pointerup', (event) => {
+      const start = downAt
+      downAt = null
+      if (!start) return
+      const dx = event.clientX - start.x
+      const dy = event.clientY - start.y
+      if (dx * dx + dy * dy > 36) return
+      const link = pickLink(event)
+      if (link?.userData.creditUrl) window.open(link.userData.creditUrl, '_blank', 'noopener')
+    })
+    canvas.addEventListener('pointermove', (event) => {
+      if (event.buttons !== 0 || downAt) return
+      canvas.style.cursor = pickLink(event) ? 'pointer' : ''
+    })
+  }
+}
 
 /* ----------------------------------------------------------- post-processing */
 
@@ -104,8 +184,7 @@ composer.addPass(new OutputPass())
 /* -------------------------------------------------------------- resize --- */
 
 /*
- * The canvas itself is resized by CSS (the stage insets when the studio opens),
- * so size everything off its box rather than the window.
+ * The canvas is sized by CSS, so measure its box rather than the window.
  */
 const resize = () => {
   const stage = canvas.parentElement
@@ -129,13 +208,7 @@ const resize = () => {
 new ResizeObserver(resize).observe(canvas)
 window.addEventListener('resize', resize)
 
-/* ---------------------------------------------------------- camera moves -- */
-
-const HOME_TARGET = new THREE.Vector3().fromArray(cameraConfig.target)
-const HOME_DIRECTION = new THREE.Vector3()
-  .fromArray(cameraConfig.position)
-  .sub(new THREE.Vector3().fromArray(cameraConfig.target))
-  .normalize()
+/* --------------------------------------------- distance fit (uses controls) -- */
 
 const HOME_POSITION = new THREE.Vector3()
 
@@ -153,8 +226,8 @@ function homeDistance() {
 
 /**
  * Re-solves only the *distance*, keeping whatever orbit angle the camera is
- * currently at — so toggling the studio panel reframes the subject without
- * snapping the view back mid-spin.
+ * currently at — so a resize reframes the subject without snapping the view
+ * back mid-spin.
  */
 function refitDistance() {
   const direction = camera.position.clone().sub(controls.target)
@@ -218,9 +291,9 @@ function resetCamera() {
 }
 
 /**
- * Pulls the camera in to a claimed spot on the body. The camera is placed along
- * the marker's own surface normal, so focusing a back zone swings the view
- * around behind the figure.
+ * Pulls the camera in to a claimed spot on the body. Only the azimuth swings
+ * (e.g. around behind the figure for a back zone) — the elevation stays on
+ * the locked turntable angle so the view never tilts up/down.
  */
 function focusZone(item) {
   if (!item) {
@@ -231,10 +304,22 @@ function focusZone(item) {
   focused = true
   syncAutoRotate()
 
+  // Azimuth comes from the marker's surface normal, flattened to the ground
+  // plane so no vertical tilt leaks in.
+  const azimuth = item.worldNormal.clone()
+  azimuth.y = 0
+  if (azimuth.lengthSq() < 1e-8) {
+    azimuth.copy(camera.position).sub(item.worldPoint)
+    azimuth.y = 0
+  }
+  if (azimuth.lengthSq() < 1e-8) azimuth.set(0, 0, 1)
+  azimuth.normalize()
+
+  const dist = cameraConfig.focusDistance
   const to = item.worldPoint
     .clone()
-    .addScaledVector(item.worldNormal.clone().normalize(), cameraConfig.focusDistance)
-  to.y += 0.05
+    .addScaledVector(azimuth, Math.sin(FIXED_POLAR_ANGLE) * dist)
+  to.y = item.worldPoint.y + Math.cos(FIXED_POLAR_ANGLE) * dist
 
   tweenCamera(to, item.worldPoint.clone(), 0.85)
 }
@@ -265,18 +350,14 @@ let panel = null
 
 async function boot() {
   /*
-   * The page comes up whole — HUD, Brand studio, arena — and only the figure
-   * waits on the loader. The zone system is built before the scan exists and is
-   * handed the avatar once it lands.
+   * The page comes up whole — HUD and arena — and only the figure waits on the
+   * loader. The sponsors list opens from View sponsors; tapping a spot on the
+   * body opens the bid dialog for that spot. The zone system is built before
+   * the scan exists and is handed the avatar once it lands.
    */
   studio = new BrandSlots({ scene, camera, canvas })
 
-  panel = initStudio({
-    studio,
-    onOpenChange: (open) => {
-      document.body.classList.toggle('has-studio', open)
-    },
-  })
+  panel = initSponsors({ studio })
 
   studio.onChange(({ armed, focusedId }) => {
     // Hold the turntable still while a brand is being placed or a spot is open.
@@ -285,15 +366,13 @@ async function boot() {
     syncAutoRotate()
   })
 
-  // Clicking a spot on the body flies the camera in and opens its sponsor card.
+  // Clicking a spot on the body flies the camera in and opens its bid dialog.
   studio.onFocus((item) => focusZone(item))
 
   initHud({
     onResetCamera: resetCamera,
-    onToggleSponsors: () => panel.setOpen(!document.body.classList.contains('has-studio')),
+    onToggleSponsors: () => panel.openSponsors(),
   })
-
-  document.body.classList.add('has-studio')
 
   setProgress(0.02, 'Loading the body…')
 
@@ -442,19 +521,18 @@ if (DEBUG || import.meta.env?.DEV) {
         },
         headTop: project(new THREE.Vector3(0, box.max.y, 0)),
         feet: project(new THREE.Vector3(0, box.min.y, 0)),
-        studioOpen: document.body.classList.contains('has-studio'),
+        sponsorsOpen: !document.querySelector('#js-sponsorsmodal')?.hidden && document.querySelector('#js-sponsorsmodal')?.classList.contains('is-open'),
       }
     },
-    /** Points the camera at the body from a given azimuth/elevation (degrees). */
-    look({ azimuth = 0, elevation = 6, distance = 4.4, targetY = null } = {}) {
+    /** Points the camera at the body from a given azimuth (degrees). Elevation stays locked. */
+    look({ azimuth = 0, distance = 4.4, targetY = null } = {}) {
       const box = new THREE.Box3().setFromObject(avatar.group)
       const center = targetY === null ? box.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, targetY, 0)
       const a = THREE.MathUtils.degToRad(azimuth)
-      const e = THREE.MathUtils.degToRad(elevation)
       camera.position.set(
-        center.x + Math.sin(a) * Math.cos(e) * distance,
-        center.y + Math.sin(e) * distance,
-        center.z + Math.cos(a) * Math.cos(e) * distance,
+        center.x + Math.sin(a) * Math.sin(FIXED_POLAR_ANGLE) * distance,
+        center.y + Math.cos(FIXED_POLAR_ANGLE) * distance,
+        center.z + Math.cos(a) * Math.sin(FIXED_POLAR_ANGLE) * distance,
       )
       controls.target.copy(center)
       controls.update()

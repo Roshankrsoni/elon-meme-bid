@@ -312,6 +312,8 @@ function buildWallFrames() {
  * Drop the artwork in as `public/wall-photo.png` (served at `/wall-photo.png`).
  * Any portrait PNG/JPG works — transparency is preserved. If the file is
  * missing, a dark placeholder panel shows instead so the frame still reads.
+ * A frame may also carry `credit: { text, url }`, drawn as a tappable plaque
+ * under the print that opens the creator's original post.
  */
 export const WALL_PHOTO = {
   photoWidth: 0.72,
@@ -320,7 +322,14 @@ export const WALL_PHOTO = {
   chamfer: 0.1,
   frames: [
     { position: [-3.1, 1.32, -1.9], url: '/wall-photo.png' },
-    { position: [3.1, 1.32, -1.9], url: '/wall-photo-2.jpg' },
+    {
+      position: [3.1, 1.32, -1.9],
+      url: '/wall-photo-2.jpg',
+      credit: {
+        text: '@Watchieboy',
+        url: 'https://www.reddit.com/r/drawing/comments/aytyv4/tried_drawing_elon_musk_im_fairly_new_to_drawing/',
+      },
+    },
   ],
 }
 
@@ -392,7 +401,27 @@ function borderLines(w, h, c, color, opacity) {
   )
 }
 
-function buildWallPhoto(position, name, url) {
+/** Small underlined handle drawn under a credited print, so it reads as a link. */
+function creditTexture(text) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 112
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.font = "600 46px Inter, system-ui, sans-serif"
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#c6f2f0'
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 - 4)
+  const width = Math.min(ctx.measureText(text).width + 16, canvas.width - 32)
+  ctx.fillRect((canvas.width - width) / 2, canvas.height / 2 + 30, width, 3)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
+function buildWallPhoto(position, name, url, credit) {
   const group = new THREE.Group()
   group.name = name
 
@@ -485,6 +514,24 @@ function buildWallPhoto(position, name, url) {
   inner.position.z = 0.016
   group.add(inner)
 
+  // Creator credit under the print. Tappable — main.js opens the URL.
+  if (credit?.url) {
+    const cw = 0.55
+    const chh = (cw * 112) / 512
+    const plaque = new THREE.Mesh(
+      new THREE.PlaneGeometry(cw, chh),
+      new THREE.MeshBasicMaterial({
+        map: creditTexture(credit.text),
+        transparent: true,
+        fog: false,
+        toneMapped: false,
+      }),
+    )
+    plaque.position.set(0, -(outerH / 2 + 0.03 + chh / 2), 0.012)
+    plaque.userData.creditUrl = credit.url
+    group.add(plaque)
+  }
+
   const [x, y, z] = position
   group.position.set(x, y, z)
   group.lookAt(0, y, 0)
@@ -497,7 +544,14 @@ function buildWallPhotos() {
   const group = new THREE.Group()
   group.name = 'wall-photos'
   WALL_PHOTO.frames.forEach((frame, index) => {
-    group.add(buildWallPhoto(frame.position, index === 0 ? 'wall-photo' : `wall-photo-${index + 1}`, frame.url))
+    group.add(
+      buildWallPhoto(
+        frame.position,
+        index === 0 ? 'wall-photo' : `wall-photo-${index + 1}`,
+        frame.url,
+        frame.credit,
+      ),
+    )
   })
   return group
 }
@@ -739,7 +793,8 @@ export function buildEnvironment(scene, renderer) {
   root.add(buildSky())
   root.add(buildWall())
   root.add(buildWallFrames())
-  root.add(buildWallPhotos())
+  const wallPhotos = buildWallPhotos()
+  root.add(wallPhotos)
   root.add(buildPillars())
   root.add(buildPedestal())
 
@@ -820,9 +875,16 @@ export function buildEnvironment(scene, renderer) {
   scene.environment = envMap
   scene.environmentIntensity = 0.6
 
+  // Tappable creator plaques under the framed prints.
+  const creditLinks = []
+  wallPhotos.traverse((child) => {
+    if (child.userData.creditUrl) creditLinks.push(child)
+  })
+
   return {
     root,
     envMap,
+    creditLinks,
     lights: { ambient, key, rimA, rimB, kicker, bounce },
     dispose() {
       root.traverse((child) => {

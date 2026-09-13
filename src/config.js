@@ -5,7 +5,9 @@
 export const site = {
   earnings: '$112,058',
   biddingLabel: 'Bidding closed',
-  raceOffset: { days: 0, hours: 0, minutes: 0, seconds: 0 },
+  // Fixed race start (13 Sep 2026, 4:01 PM IST) — an absolute UTC instant so
+  // the clock reads the same on every device.
+  raceStartUtc: '2026-09-13T10:31:00Z',
 }
 
 /** Athlete profile card (bottom-right HUD). */
@@ -68,7 +70,7 @@ export const camera = {
   fov: 34,
   /**
    * The camera pulls back far enough to fit this box with margin, so the bust
-   * never crops on wide, tall or studio-narrowed viewports.
+   * never crops on wide, tall or narrow viewports.
    */
   framing: { height: 1.32, width: 1.05, margin: 1.22 },
   minDistance: 0.55,

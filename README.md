@@ -47,8 +47,8 @@ runtime, so the project ships with no branding assets of its own:
   model inverted (white on black) beside it. A hero-coloured strap keeps both
   columns in its own colour.
 
-The same artwork drives the brand tiles in the studio panel (`logoDataUrl`), so
-the card and the body read as one system.
+The same artwork drives the sponsor rows (`logoDataUrl`), so
+the list and the body read as one system.
 
 **The brand slots** — the scan is an unskinned, unnamed photogrammetry mesh, so
 there are no bones or semantic node names to place a logo against. Two modules
@@ -116,7 +116,7 @@ Almost everything a non-developer would touch is in **`src/config.js`**:
 
 Framing is aspect-aware: `homeDistance()` in `src/main.js` pulls the camera back
 far enough to fit `camera.framing` on any viewport, so the subject never crops on
-a wide, tall, or studio-narrowed window.
+a wide, tall, or narrow window.
 
 ### Swapping the model
 
@@ -168,7 +168,7 @@ src/scene/model.js       scan loading, normalisation, holographic fade
 src/scene/anatomy.js     measures the body's axes and anatomical landmarks
 src/scene/brandSlots.js  the eleven brand slots, BVH raycasting and decal fitting
 src/ui/patches.js        procedural patch artwork
-src/ui/panel.js          Brand studio wiring
+src/ui/panel.js          sponsors list + bid dialog wiring
 src/ui/hud.js            countdown, ticker, HUD controls
 src/ui/placeholders.js   canvas-drawn avatar and camera tile
 src/styles/main.css      the whole visual system

@@ -28,8 +28,8 @@
       <div class="stage__grain" aria-hidden="true"></div>
 
       <!--
-        Scoped to the viewport, not the page: the HUD and the Brand studio are
-        usable while the scan downloads, and only the figure is held back.
+        Scoped to the viewport, not the page: the HUD is usable while the scan
+        downloads, and only the figure is held back.
       -->
       <div class="loader" id="js-loader">
         <div class="loader__inner">
@@ -103,98 +103,28 @@
       </section>
     </div>
 
-    <!-- ── Brand studio ─────────────────────────────────────────────────── -->
-    <button type="button" class="studiotab" id="js-studiotab" aria-controls="studio" aria-expanded="true">
-      <span class="studiotab__label">Brand studio</span>
-    </button>
+    <!-- ── Sponsors ─────────────────────────────────────────────────────── -->
+    <!-- The only way to see every sponsor at once. Opened by View sponsors. -->
+    <div class="sponsors" id="js-sponsorsmodal" role="dialog" aria-modal="true" aria-labelledby="sponsors-title" hidden>
+      <div class="sponsors__scrim" id="js-sponsorsscrim"></div>
 
-    <aside class="studio" id="studio" aria-label="Brand studio">
-      <div class="studio__pane">
-        <header class="studio__head">
+      <div class="sponsors__card">
+        <header class="sponsors__head">
           <div>
-            <h2>Brand studio</h2>
-            <p>Eleven spots on the body. Claim one.</p>
+            <h2 id="sponsors-title">Sponsors</h2>
+            <p id="js-sponsorssub">Every spot on the body.</p>
           </div>
-          <button type="button" class="iconbtn iconbtn--close" id="js-studioclose" title="Close">
+          <button type="button" class="iconbtn iconbtn--close" id="js-sponsorsclose" title="Close">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
           </button>
         </header>
 
-        <div class="studio__body">
-          <section class="panel">
-            <h3>Sponsor spots <span class="count" id="js-count">0</span></h3>
-            <div class="zonegrid" id="js-zones"></div>
-            <p class="empty" id="js-empty">Hanging the sponsor spots on the body…</p>
-          </section>
-
-          <section class="panel">
-            <h3><span class="step">01</span> Pick a brand</h3>
-            <div class="patchgrid" id="js-brands"></div>
-          </section>
-
-          <section class="panel">
-            <h3><span class="step">02</span> Or add your own</h3>
-            <label class="dropzone" id="js-dropzone">
-              <input type="file" accept="image/*" id="js-logo" hidden />
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M10 13.5V4.5M6.5 8L10 4.5 13.5 8M4 15.5h12" />
-              </svg>
-              <span>
-                <span class="dropzone__title">Upload a logo</span>
-                <span class="dropzone__hint">PNG or SVG · stays on your device</span>
-              </span>
-            </label>
-          </section>
-
-          <section class="panel panel--settings">
-            <h3><span class="step">03</span> Fit it <span class="count" id="js-fit-for">Open a spot</span></h3>
-            <div class="slider">
-              <label for="js-size">Size <output id="js-size-out">9 cm</output></label>
-              <input type="range" id="js-size" min="3" max="18" step="1" value="9" />
-            </div>
-            <div class="slider">
-              <label for="js-rot">Rotation <output id="js-rot-out">0°</output></label>
-              <input type="range" id="js-rot" min="-180" max="180" step="1" value="0" />
-            </div>
-            <div class="slider">
-              <label for="js-opacity">Intensity <output id="js-opacity-out">100%</output></label>
-              <input type="range" id="js-opacity" min="20" max="100" step="1" value="100" />
-            </div>
-          </section>
+        <div class="sponsors__body">
+          <ol class="sponsors__list" id="js-sponsorslist"></ol>
+          <p class="sponsors__empty" id="js-sponsorsempty">Hanging the sponsor spots on the body…</p>
         </div>
-
-        <footer class="studio__foot">
-          <span class="hint" id="js-hint">Tap a spot on the body to open its sponsor.</span>
-          <span class="chip">No checkout</span>
-        </footer>
       </div>
-
-      <!-- Takes over the panel when a spot on the body is opened. -->
-      <div class="brandcard" id="js-brandcard">
-        <header class="brandcard__head">
-          <div>
-            <h2 id="bc-title">Right chest</h2>
-            <p id="bc-views">32,269 views</p>
-          </div>
-          <button type="button" class="iconbtn iconbtn--close" id="bc-close" title="Back to the studio">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-          </button>
-        </header>
-
-        <div class="brandcard__body">
-          <img class="brandcard__logo" id="bc-logo" alt="" />
-          <h3 class="brandcard__brand" id="bc-brand">Higsfield</h3>
-          <p class="brandcard__by">by <b id="bc-handle">@higsfield</b></p>
-          <p class="brandcard__blurb" id="bc-blurb">Generative video for athletes and brands</p>
-          <a class="brandcard__link" id="bc-link" href="#" target="_blank" rel="noreferrer">higsfield.ai ↗</a>
-        </div>
-
-        <footer class="brandcard__foot">
-          <span>Sponsored for</span>
-          <strong id="bc-amount">$11,400</strong>
-        </footer>
-      </div>
-    </aside>
+    </div>
 
     <!-- ── Bid modal ────────────────────────────────────────────────────── -->
     <div class="bidmodal" id="js-bidmodal" role="dialog" aria-modal="true" aria-labelledby="bid-title" hidden>

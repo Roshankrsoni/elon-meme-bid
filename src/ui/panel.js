@@ -1,7 +1,5 @@
-import { BRANDS, createPatchCanvas, logoDataUrl } from './patches.js'
-import { placement as config } from '../config.js'
+import { logoDataUrl } from './patches.js'
 
-const cm = (value) => `${value} cm`
 /** View counts are written as copy ("32,269"), so tolerate the punctuation. */
 const parseCount = (value) => {
   const digits = String(value).replace(/[^0-9]/g, '')
@@ -9,24 +7,25 @@ const parseCount = (value) => {
 }
 
 /**
- * Wires the right-hand panel. It has two modes:
+ * Wires the two dialogs:
  *
- *  - the studio, where you pick a brand and claim one of the eleven spots, and
- *  - the sponsor card, which takes over the panel when a spot is opened.
+ *  - the sponsors list, the only place every spot on the body can be seen at
+ *    once — opened exclusively by the View sponsors button, and
+ *  - the bid dialog, opened by tapping a placeholder or a brand on the body
+ *    (or a row in the sponsors list) to claim that one spot.
  *
  * All placement state lives in BrandSlots; this file only reads and reports it.
  */
-export function initStudio({ studio, onOpenChange }) {
-  const panel = document.querySelector('#studio')
-  const tab = document.querySelector('#js-studiotab')
-  const close = document.querySelector('#js-studioclose')
-  const zonesGrid = document.querySelector('#js-zones')
-  const brandsGrid = document.querySelector('#js-brands')
-  const empty = document.querySelector('#js-empty')
-  const count = document.querySelector('#js-count')
-  const hint = document.querySelector('#js-hint')
-  const dropzone = document.querySelector('#js-dropzone')
-  const fileInput = document.querySelector('#js-logo')
+export function initSponsors({ studio }) {
+  const money = (value) => `$${Math.round(value).toLocaleString('en-US')}`
+
+  // Sponsors modal.
+  const sponsorsModal = document.querySelector('#js-sponsorsmodal')
+  const sponsorsScrim = document.querySelector('#js-sponsorsscrim')
+  const sponsorsClose = document.querySelector('#js-sponsorsclose')
+  const sponsorsList = document.querySelector('#js-sponsorslist')
+  const sponsorsEmpty = document.querySelector('#js-sponsorsempty')
+  const sponsorsSub = document.querySelector('#js-sponsorssub')
 
   // Bid modal.
   const bidModal = document.querySelector('#js-bidmodal')
@@ -45,116 +44,108 @@ export function initStudio({ studio, onOpenChange }) {
   const bidSpot = document.querySelector('#bid-spot')
   const bidRemove = document.querySelector('#js-bidremove')
 
-  const sizeInput = document.querySelector('#js-size')
-  const sizeOut = document.querySelector('#js-size-out')
-  const rotInput = document.querySelector('#js-rot')
-  const rotOut = document.querySelector('#js-rot-out')
-  const opacityInput = document.querySelector('#js-opacity')
-  const opacityOut = document.querySelector('#js-opacity-out')
+  /* ------------------------------------------------------- sponsors modal */
 
-  // Sponsor card.
-  const cardClose = document.querySelector('#bc-close')
-  const cardTitle = document.querySelector('#bc-title')
-  const cardViews = document.querySelector('#bc-views')
-  const cardLogo = document.querySelector('#bc-logo')
-  const cardBrand = document.querySelector('#bc-brand')
-  const cardHandle = document.querySelector('#bc-handle')
-  const cardBlurb = document.querySelector('#bc-blurb')
-  const cardLink = document.querySelector('#bc-link')
-  const cardAmount = document.querySelector('#bc-amount')
+  const sponsorsOpen = () => !sponsorsModal.hidden && sponsorsModal.classList.contains('is-open')
 
-  let customCount = 0
-  let zoneChips = new Map()
-
-  /* ------------------------------------------------------------- open/close */
-
-  const setOpen = (open) => {
-    document.body.classList.toggle('has-studio', open)
-    tab.setAttribute('aria-expanded', String(open))
-    onOpenChange?.(open)
-  }
-
-  tab.addEventListener('click', () => setOpen(true))
-  close.addEventListener('click', () => setOpen(false))
-  cardClose.addEventListener('click', () => studio.focus(null))
-
-  /* ----------------------------------------------------------- zone chips -- */
-
-  /** Compact colour chip per sponsor spot. Clicking one opens that spot. */
-  const buildZoneChips = (items) => {
-    zonesGrid.replaceChildren()
-    zoneChips = new Map()
-
-    for (const item of items) {
-      const chip = document.createElement('button')
-      chip.type = 'button'
-      chip.className = 'zonechip'
-      chip.dataset.zoneId = item.id
-
-      const swatch = document.createElement('i')
-      swatch.className = 'zonechip__swatch'
-
-      const label = document.createElement('span')
-      label.className = 'zonechip__label'
-      label.textContent = item.def.label
-
-      chip.append(swatch, label)
-      chip.addEventListener('click', () => studio.focus(item.id))
-      chip.addEventListener('mouseenter', () => {
-        studio.hoveredId = item.id
-        studio._applyHighlight()
-      })
-      chip.addEventListener('mouseleave', () => {
-        studio.hoveredId = null
-        studio._applyHighlight()
-      })
-
-      zonesGrid.append(chip)
-      zoneChips.set(item.id, { chip, swatch, label })
+  function openSponsors() {
+    renderSponsors()
+    if (!sponsorsModal.hidden) {
+      sponsorsModal.classList.add('is-open')
+      return
     }
+    sponsorsModal.hidden = false
+    // Let the browser paint the dialog before the open transition starts.
+    requestAnimationFrame(() => sponsorsModal.classList.add('is-open'))
+    document.body.classList.add('is-modal')
+    sponsorsClose.focus({ preventScroll: true })
   }
 
-  const renderZones = ({ items, hoveredId, focusedId }) => {
-    if (zoneChips.size !== items.length) buildZoneChips(items)
-    count.textContent = String(items.length)
-    empty.hidden = items.length > 0
+  function closeSponsors() {
+    if (sponsorsModal.hidden) return
+    sponsorsModal.classList.remove('is-open')
+    // The bid modal shares `is-modal` — only release the page scroll lock
+    // when no dialog remains visible.
+    if (bidModal.hidden) document.body.classList.remove('is-modal')
+
+    const done = () => {
+      if (sponsorsModal.classList.contains('is-open')) return
+      sponsorsModal.hidden = true
+      sponsorsModal.removeEventListener('transitionend', done)
+    }
+    sponsorsModal.addEventListener('transitionend', done)
+    // Fallback for reduced-motion, where no transition fires.
+    setTimeout(done, 400)
+  }
+
+  sponsorsClose.addEventListener('click', closeSponsors)
+  sponsorsScrim.addEventListener('click', closeSponsors)
+
+  /** One row per spot on the body: logo, spot name, brand and price. */
+  const renderSponsors = () => {
+    const items = [...studio.items.values()]
+    sponsorsList.replaceChildren()
+    sponsorsEmpty.hidden = items.length > 0
+    sponsorsSub.textContent =
+      items.length > 0 ? `${items.length} spots on the body.` : 'Every spot on the body.'
 
     for (const item of items) {
-      const entry = zoneChips.get(item.id)
-      if (!entry) continue
-      entry.swatch.style.background = item.brand.color
-      entry.chip.classList.toggle('is-focused', item.id === focusedId)
-      entry.chip.classList.toggle('is-hovered', item.id === hoveredId)
-      entry.chip.title = `${item.def.label} — ${item.brand.label}`
+      const brand = item.brand
+      const open = brand.mark === 'empty'
+
+      const row = document.createElement('li')
+
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'sponsor'
+
+      const logo = document.createElement('img')
+      logo.className = 'sponsor__logo'
+      logo.src = logoDataUrl(brand, 96)
+      logo.alt = open ? '' : `${brand.label} logo`
+
+      const id = document.createElement('span')
+      id.className = 'sponsor__id'
+
+      const spot = document.createElement('span')
+      spot.className = 'sponsor__spot'
+      spot.textContent = item.def.label
+
+      const name = document.createElement('span')
+      name.className = 'sponsor__brand'
+      if (open) name.classList.add('is-open')
+      name.textContent = open ? 'Open spot' : brand.label
+
+      const amount = document.createElement('span')
+      amount.className = 'sponsor__amount'
+      amount.textContent = open ? 'From $1,000' : brand.amount
+
+      id.append(spot, name)
+      button.append(logo, id, amount)
+      button.addEventListener('click', () => {
+        closeSponsors()
+        studio.focus(item.id)
+        openBid(brand, item)
+      })
+
+      row.append(button)
+      sponsorsList.append(row)
     }
   }
 
   /* -------------------------------------------------------------- bid modal */
 
-  const money = (value) => `$${Math.round(value).toLocaleString('en-US')}`
-
   let bidBrand = null
   let bidSpotItem = null
 
-  /*
-   * Placing a bid hands the brand to the zone system, which then waits for the
-   * visitor to tap a spot. The modal's job is only to agree the price.
-   */
+  /** Claims the agreed spot outright — every bid is tied to one spot. */
   const confirmBid = (amount) => {
     const brand = bidBrand
     const spot = bidSpotItem
     closeBid()
-    if (!brand) return
-
-    // Opened from a spot on the body: claim that spot and stop.
-    if (spot) {
-      studio.assign(spot.id, brand)
-      studio.notice(`${spot.def.label} claimed for ${money(amount)}.`)
-      return
-    }
-
-    studio.setArmed(brand)
-    studio.notice(`${brand.label} at ${money(amount)} — now tap the spot you want.`)
+    if (!brand || !spot) return
+    studio.assign(spot.id, brand)
+    renderSponsors()
   }
 
   function openBid(brand, spot = null) {
@@ -167,7 +158,7 @@ export function initStudio({ studio, onOpenChange }) {
     const open = brand.mark === 'empty'
 
     bidLogo.src = logoDataUrl(brand, 128)
-    bidLogo.alt = `${brand.label} logo`
+    bidLogo.alt = open ? '' : `${brand.label} logo`
     bidTitle.textContent = open ? 'This spot is open' : brand.label
     bidHandle.textContent = open ? 'Be the first bid' : brand.handle
     bidCurrent.textContent = open ? '—' : money(current)
@@ -198,9 +189,12 @@ export function initStudio({ studio, onOpenChange }) {
   function closeBid() {
     if (bidModal.hidden) return
     bidModal.classList.remove('is-open')
-    document.body.classList.remove('is-modal')
+    // The sponsors modal shares `is-modal` — keep the page locked while open.
+    if (sponsorsModal.hidden) document.body.classList.remove('is-modal')
     bidBrand = null
     bidSpotItem = null
+    // Unfocus the spot so the camera flies back out to the full figure.
+    studio.focus(null)
 
     const done = () => {
       bidModal.hidden = true
@@ -255,214 +249,33 @@ export function initStudio({ studio, onOpenChange }) {
   bidRemove.addEventListener('click', () => {
     const spot = bidSpotItem
     closeBid()
-    if (spot) studio.clearZone(spot.id)
+    if (spot) {
+      studio.clearZone(spot.id)
+      renderSponsors()
+    }
   })
 
   bidClose.addEventListener('click', closeBid)
   bidScrim.addEventListener('click', closeBid)
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !bidModal.hidden) closeBid()
+    if (event.key !== 'Escape') return
+    // The bid modal sits above the sponsors list — let its Escape win first.
+    if (!bidModal.hidden) closeBid()
+    else if (!sponsorsModal.hidden) closeSponsors()
   })
 
-  /* ------------------------------------------------------------ brand grid */
+  /* ------------------------------------------------------------------ wiring */
 
-  const buildBrands = () => {
-    for (const brand of BRANDS) {
-      const card_ = document.createElement('button')
-      card_.type = 'button'
-      card_.className = 'patchcard'
-      card_.dataset.brandId = brand.id
-
-      const swatch = createPatchCanvas(brand, { size: 168 })
-      swatch.style.width = '100%'
-      swatch.style.height = 'auto'
-      card_.append(swatch)
-
-      const label = document.createElement('span')
-      label.textContent = brand.label
-      card_.append(label)
-
-      card_.addEventListener('click', () => openBid(brand))
-
-      brandsGrid.append(card_)
-    }
-  }
-
-  /* ----------------------------------------------------------------- upload */
-
-  const readImage = (file) =>
-    new Promise((resolve, reject) => {
-      if (!file || !file.type.startsWith('image/')) {
-        reject(new Error('Not an image'))
-        return
-      }
-      const url = URL.createObjectURL(file)
-      const image = new Image()
-      image.onload = () => resolve(image)
-      image.onerror = () => reject(new Error('Could not read that file'))
-      image.src = url
-    })
-
-  const handleFiles = async (files) => {
-    const file = files?.[0]
-    if (!file) return
-
-    try {
-      const image = await readImage(file)
-      customCount += 1
-
-      const brand = {
-        id: `custom-${customCount}`,
-        label: file.name.replace(/\.[^.]+$/, '').slice(0, 14) || 'Your brand',
-        style: 'logo',
-        color: '#f2f5f7',
-        seed: 100 + customCount,
-        monogram: '★',
-        handle: '@yourbrand',
-        blurb: 'Uploaded logo, held in this browser only.',
-        url: 'sponsormybody.com',
-        amount: '$1,000',
-        views: '0',
-        image,
-      }
-
-      BRANDS.push(brand)
-
-      const tile = document.createElement('button')
-      tile.type = 'button'
-      tile.className = 'patchcard'
-      tile.dataset.brandId = brand.id
-      const swatch = createPatchCanvas(brand, { size: 168 })
-      swatch.style.width = '100%'
-      swatch.style.height = 'auto'
-      tile.append(swatch)
-      const label = document.createElement('span')
-      label.textContent = brand.label
-      tile.append(label)
-      tile.addEventListener('click', () => openBid(brand))
-      brandsGrid.prepend(tile)
-      openBid(brand)
-    } catch {
-      hint.textContent = 'That file could not be read as an image'
-    }
-  }
-
-  fileInput.addEventListener('change', () => {
-    handleFiles(fileInput.files)
-    fileInput.value = ''
-  })
-
-  for (const event of ['dragenter', 'dragover']) {
-    dropzone.addEventListener(event, (e) => {
-      e.preventDefault()
-      dropzone.classList.add('is-over')
-    })
-  }
-  for (const event of ['dragleave', 'drop']) {
-    dropzone.addEventListener(event, (e) => {
-      e.preventDefault()
-      dropzone.classList.remove('is-over')
-    })
-  }
-  dropzone.addEventListener('drop', (e) => handleFiles(e.dataTransfer?.files))
-
-  /* -------------------------------------------------------------------- fit */
-
-  const syncOutputs = () => {
-    sizeOut.textContent = cm(sizeInput.value)
-    rotOut.textContent = `${rotInput.value}°`
-    opacityOut.textContent = `${opacityInput.value}%`
-  }
-
-  sizeInput.addEventListener('input', () => {
-    syncOutputs()
-    studio.updateSettings({ sizeCm: Number(sizeInput.value) })
-  })
-  rotInput.addEventListener('input', () => {
-    syncOutputs()
-    studio.updateSettings({ rotationDeg: Number(rotInput.value) })
-  })
-  opacityInput.addEventListener('input', () => {
-    syncOutputs()
-    studio.updateSettings({ opacity: Number(opacityInput.value) })
-  })
-
-  /* ------------------------------------------------------------ sponsor card */
-
-  const renderCard = ({ focusedId, items }) => {
-    const item = focusedId ? items.find((entry) => entry.id === focusedId) : null
-    panel.classList.toggle('is-brand', !!item)
-    if (!item) return
-
-    const brand = item.brand
-    cardTitle.textContent = item.def.label
-    cardViews.textContent = `${parseCount(brand.views).toLocaleString('en-US')} views`
-    cardLogo.src = logoDataUrl(brand, 256)
-    cardLogo.alt = `${brand.label} logo`
-    cardBrand.textContent = brand.label
-    cardHandle.textContent = brand.handle
-    cardBlurb.textContent = brand.blurb
-    cardLink.textContent = `${brand.url} ↗`
-    cardLink.href = `https://${brand.url}`
-    cardAmount.textContent = brand.amount
-  }
-
-  /* ------------------------------------------------------------------ render */
-
-  let noticeTimer = null
-
+  // A tap on a placeholder or a brand on the body opens the bid dialog for
+  // that spot directly. The sponsors list never opens from the body.
   studio.onOpenBid = (brand, item) => openBid(brand, item)
 
-  studio.onNotice = (message) => {
-    hint.classList.remove('is-armed')
-    hint.textContent = message
-    clearTimeout(noticeTimer)
-    noticeTimer = setTimeout(() => renderHint(studio.armed), 3200)
-  }
-
-  const renderHint = (armed) => {
-    if (armed) {
-      hint.classList.add('is-armed')
-      hint.textContent = `Now tap a spot to place ${armed.label}.`
-    } else {
-      hint.classList.remove('is-armed')
-      hint.textContent = 'Tap a spot on the body to open its sponsor.'
-    }
-  }
-
-  const renderArmed = ({ armed }) => {
-    for (const tile of brandsGrid.children) {
-      tile.classList.toggle('is-active', armed?.id === tile.dataset.brandId)
-    }
-    renderHint(armed)
-  }
-
-  const renderSettings = ({ settings, focusedId }) => {
-    sizeInput.value = String(Math.round(settings.sizeCm))
-    rotInput.value = String(Math.round(settings.rotationDeg))
-    opacityInput.value = String(Math.round(settings.opacity))
-    syncOutputs()
-
-    const enabled = !!focusedId
-    sizeInput.disabled = !enabled
-    rotInput.disabled = !enabled
-    opacityInput.disabled = !enabled
-  }
-
-  studio.onChange((payload) => {
-    renderZones(payload)
-    renderArmed(payload)
-    renderSettings(payload)
-    renderCard(payload)
+  // Keep the open sponsors list truthful while bids land.
+  studio.onChange(() => {
+    if (!sponsorsModal.hidden) renderSponsors()
   })
 
-  buildBrands()
-  sizeInput.min = String(config.minSizeCm)
-  sizeInput.max = String(config.maxSizeCm)
-  syncOutputs()
-  renderHint(null)
-  renderSettings({ settings: studio.settings, focusedId: null })
-  renderZones({ items: [], hoveredId: null, focusedId: null })
+  renderSponsors()
 
-  return { setOpen }
+  return { openSponsors, sponsorsOpen }
 }

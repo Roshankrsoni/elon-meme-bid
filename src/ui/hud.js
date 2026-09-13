@@ -6,7 +6,8 @@ const pad = (value) => String(Math.max(0, Math.floor(value))).padStart(2, '0')
 /* ----------------------------------------------------------- countdown --- */
 
 function initCountdown(root) {
-  const started = Date.now()
+  // Fixed start instant from config, so every device shows the same elapsed time.
+  const started = Date.parse(site.raceStartUtc)
 
   const outputs = [...root.querySelectorAll('.countdown__seg b')]
 

@@ -912,7 +912,7 @@ export class BrandSlots {
     this._emit()
   }
 
-  /** Opens a spot: it becomes the slider target and the camera flies to it. */
+  /** Opens a spot: the camera flies to it and its bid dialog opens. */
   focus(id) {
     this.focusedId = id ?? null
 
