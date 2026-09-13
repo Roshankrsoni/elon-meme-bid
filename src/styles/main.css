@@ -427,32 +427,41 @@ body.has-studio .hud__block--feed {
 
 /* ── Live activity ───────────────────────────────────────── */
 
-.watchers {
-  margin: 0 0 9px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
+.hud__block--bl {
+  justify-self: start;
+  max-width: 220px;
 }
 
-.watchers strong {
-  color: var(--text);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.jotform-slot {
+  margin: 0 0 8px;
+  width: 190px;
+  max-width: 50vw;
+  justify-self: start;
+  text-shadow: none;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+  transform-origin: left bottom;
+  zoom: 0.82;
 }
 
-.watchers .pulse {
-  width: 6px;
-  height: 6px;
-  background: var(--pink);
-  animation-name: pulse-pink;
+.jotform-slot > div,
+.jotform-slot .jf-visitor-counter-card {
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
-@keyframes pulse-pink {
-  0% { box-shadow: 0 0 0 0 rgba(240, 110, 160, 0.5); }
-  70% { box-shadow: 0 0 0 8px rgba(240, 110, 160, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(240, 110, 160, 0); }
+.jotform-slot iframe {
+  max-width: 100% !important;
+  width: 100% !important;
+  border-radius: 12px;
+  border: 0;
+}
+
+@supports not (zoom: 1) {
+  .jotform-slot {
+    transform: scale(0.82);
+  }
 }
 
 .ticker {
@@ -1236,4 +1245,336 @@ input[type='range']:disabled::-webkit-slider-thumb {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ============================================================
+   Bid modal — bottom sheet on phones, centred card on desktop
+   ============================================================ */
+
+.bidmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.bidmodal[hidden] { display: none; }
+
+.bidmodal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 6, 11, 0.74);
+  backdrop-filter: blur(7px);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.bidmodal__card {
+  position: relative;
+  width: min(430px, 100%);
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(200deg, rgba(15, 23, 33, 0.98), rgba(7, 12, 18, 0.99));
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.66);
+  transform: translateY(14px) scale(0.98);
+  opacity: 0;
+  transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 260ms ease;
+}
+
+.bidmodal.is-open .bidmodal__scrim { opacity: 1; }
+.bidmodal.is-open .bidmodal__card { transform: none; opacity: 1; }
+
+.bidmodal__head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bidmodal__logo {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 14px;
+  display: block;
+}
+
+.bidmodal__id {
+  min-width: 0;
+  flex: 1;
+}
+
+.bidmodal__id h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.bidmodal__id p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--accent-hi);
+}
+
+.bidmodal__body {
+  padding: 18px 20px 22px;
+}
+
+/* Read-only, so it deliberately does not look like the editable field below. */
+.bidrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bidrow__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bidrow__value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.bidmodal__note {
+  margin: 10px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted-2);
+}
+
+.bidtake {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 15px 18px;
+  border-radius: 999px;
+  background: var(--accent-pale);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px rgba(198, 242, 240, 0.4), 0 12px 34px rgba(31, 214, 240, 0.26);
+  transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1), background 180ms ease;
+}
+
+.bidtake:hover { transform: translateY(-2px); background: #d7f7f5; }
+.bidtake:active { transform: translateY(0) scale(0.99); }
+
+.bidtake__label {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.bidtake__price {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.bidmodal__hint {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.bidcustom {
+  /* Full-bleed rule, matching the divider under the header. */
+  margin: 20px -20px 0;
+  padding: 18px 20px 0;
+  border-top: 1px solid var(--line);
+}
+
+.bidcustom > label {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bidcustom__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 160ms ease;
+}
+
+.bidcustom__row:focus-within { border-color: var(--accent); }
+
+.bidcustom__prefix {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.bidcustom__row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.bidcustom__row input::-webkit-outer-spin-button,
+.bidcustom__row input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bidcustom__row input::placeholder { color: var(--muted-2); }
+
+.bidcustom__submit {
+  flex: none;
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-dim);
+  background: rgba(31, 214, 240, 0.12);
+  color: var(--accent-hi);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.bidcustom__submit:hover {
+  background: rgba(31, 214, 240, 0.22);
+  color: #fff;
+}
+
+.bidcustom__error {
+  margin: 9px 2px 0;
+  font-size: 11.5px;
+  color: var(--pink);
+}
+
+.bidcustom__error[hidden] { display: none; }
+
+@media (max-width: 860px) {
+  .bidmodal {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .bidmodal__card {
+    width: 100%;
+    max-width: none;
+    max-height: 90vh;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+  }
+
+  .bidmodal.is-open .bidmodal__card { transform: none; }
+
+  .bidmodal__head { padding: 18px 18px 14px; }
+  .bidmodal__body { padding: 16px 18px 26px; }
+  .bidcustom { margin-inline: -18px; padding-inline: 18px; }
+  /* Comfortable touch target. */
+  .iconbtn--close { width: 38px; height: 38px; }
+  .bidrow__value { font-size: 26px; }
+  .bidtake { padding: 17px 20px; }
+  .bidtake__price { font-size: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bidmodal__scrim,
+  .bidmodal__card { transition-duration: 0.001ms; }
+}
+
+/* The page behind the modal should not scroll on phones. */
+body.is-modal { overflow: hidden; }
+
+/* ── bid modal: spot line + remove action ─────────────────── */
+
+.bidmodal__spot {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.bidmodal__spot[hidden] { display: none; }
+
+.bidremove {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 110, 160, 0.32);
+  background: rgba(240, 110, 160, 0.08);
+  color: var(--pink);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.bidremove:hover {
+  background: rgba(240, 110, 160, 0.16);
+  border-color: rgba(240, 110, 160, 0.55);
+}
+
+.bidremove[hidden] { display: none; }
+
+@media (max-width: 860px) {
+  /* A grab handle makes the sheet read as draggable rather than a stray card. */
+  .bidmodal__card::before {
+    content: '';
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  .bidmodal__head { padding-top: 26px; }
+
+  .bidrow { padding: 16px; }
+  .bidrow__value { font-size: 27px; }
+
+  .bidtake {
+    padding: 18px 20px;
+    border-radius: 18px;
+  }
+
+  .bidtake__label { font-size: 14px; }
+  .bidtake__price { font-size: 19px; }
+
+  .bidcustom__row { padding: 5px 5px 5px 15px; }
+  .bidcustom__row input { font-size: 16px; }
+  .bidcustom__submit { padding: 13px 20px; font-size: 13px; }
+
+  .bidremove { padding: 14px; font-size: 13px; }
 }

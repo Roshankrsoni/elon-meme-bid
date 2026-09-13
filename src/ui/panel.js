@@ -11,10 +11,10 @@ const parseCount = (value) => {
 /**
  * Wires the right-hand panel. It has two modes:
  *
- *  - the studio, where you pick a brand and claim one of the eight spots, and
+ *  - the studio, where you pick a brand and claim one of the eleven spots, and
  *  - the sponsor card, which takes over the panel when a spot is opened.
  *
- * All placement state lives in BodyZones; this file only reads and reports it.
+ * All placement state lives in BrandSlots; this file only reads and reports it.
  */
 export function initStudio({ studio, onOpenChange }) {
   const panel = document.querySelector('#studio')
@@ -27,6 +27,23 @@ export function initStudio({ studio, onOpenChange }) {
   const hint = document.querySelector('#js-hint')
   const dropzone = document.querySelector('#js-dropzone')
   const fileInput = document.querySelector('#js-logo')
+
+  // Bid modal.
+  const bidModal = document.querySelector('#js-bidmodal')
+  const bidScrim = document.querySelector('#js-bidscrim')
+  const bidClose = document.querySelector('#js-bidclose')
+  const bidLogo = document.querySelector('#bid-logo')
+  const bidTitle = document.querySelector('#bid-title')
+  const bidHandle = document.querySelector('#bid-handle')
+  const bidCurrent = document.querySelector('#bid-current')
+  const bidNote = document.querySelector('#bid-note')
+  const bidTakeBtn = document.querySelector('#js-bidtake')
+  const bidTakePrice = document.querySelector('#bid-take')
+  const bidAmount = document.querySelector('#js-bidamount')
+  const bidSubmit = document.querySelector('#js-bidsubmit')
+  const bidError = document.querySelector('#js-biderror')
+  const bidSpot = document.querySelector('#bid-spot')
+  const bidRemove = document.querySelector('#js-bidremove')
 
   const sizeInput = document.querySelector('#js-size')
   const sizeOut = document.querySelector('#js-size-out')
@@ -112,6 +129,141 @@ export function initStudio({ studio, onOpenChange }) {
     }
   }
 
+  /* -------------------------------------------------------------- bid modal */
+
+  const money = (value) => `$${Math.round(value).toLocaleString('en-US')}`
+
+  let bidBrand = null
+  let bidSpotItem = null
+
+  /*
+   * Placing a bid hands the brand to the zone system, which then waits for the
+   * visitor to tap a spot. The modal's job is only to agree the price.
+   */
+  const confirmBid = (amount) => {
+    const brand = bidBrand
+    const spot = bidSpotItem
+    closeBid()
+    if (!brand) return
+
+    // Opened from a spot on the body: claim that spot and stop.
+    if (spot) {
+      studio.assign(spot.id, brand)
+      studio.notice(`${spot.def.label} claimed for ${money(amount)}.`)
+      return
+    }
+
+    studio.setArmed(brand)
+    studio.notice(`${brand.label} at ${money(amount)} — now tap the spot you want.`)
+  }
+
+  function openBid(brand, spot = null) {
+    bidBrand = brand
+    bidSpotItem = spot
+
+    const current = parseCount(brand.amount)
+    const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
+
+    const open = brand.mark === 'empty'
+
+    bidLogo.src = logoDataUrl(brand, 128)
+    bidLogo.alt = `${brand.label} logo`
+    bidTitle.textContent = open ? 'This spot is open' : brand.label
+    bidHandle.textContent = open ? 'Be the first bid' : brand.handle
+    bidCurrent.textContent = open ? '—' : money(current)
+    bidTakePrice.textContent = open ? 'From $1,000' : money(current + 1)
+    bidSpot.textContent = spot ? `Spotted on the ${spot.def.label.toLowerCase()}` : 'Sponsor a spot'
+    bidSpot.hidden = !spot
+    bidRemove.hidden = !spot || open
+
+    bidNote.textContent = open
+      ? 'No sponsor yet. Take it at the base rate, or name your own price.'
+      : spots.length
+        ? `Currently on the ${spots.map((entry) => entry.def.label.toLowerCase()).join(' and ')} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
+        : `${brand.blurb} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
+
+    bidAmount.value = ''
+    bidAmount.placeholder = money(current + 1).slice(1)
+    bidError.hidden = true
+
+    bidModal.hidden = false
+    // Let the browser paint the dialog before the open transition starts.
+    requestAnimationFrame(() => bidModal.classList.add('is-open'))
+    document.body.classList.add('is-modal')
+    // Focus the primary action, not the text field — focusing the field pops
+    // the keyboard over the button on phones.
+    bidTakeBtn.focus({ preventScroll: true })
+  }
+
+  function closeBid() {
+    if (bidModal.hidden) return
+    bidModal.classList.remove('is-open')
+    document.body.classList.remove('is-modal')
+    bidBrand = null
+    bidSpotItem = null
+
+    const done = () => {
+      bidModal.hidden = true
+      bidModal.removeEventListener('transitionend', done)
+    }
+    bidModal.addEventListener('transitionend', done)
+    // Fallback for reduced-motion, where no transition fires.
+    setTimeout(done, 400)
+  }
+
+  bidTakeBtn.addEventListener('click', () => {
+    if (!bidBrand) return
+    confirmBid(parseCount(bidBrand.amount) + 1)
+  })
+
+  // Keep the field reading as money while it is typed into.
+  bidAmount.addEventListener('input', () => {
+    const digits = bidAmount.value.replace(/[^0-9]/g, '').slice(0, 9)
+    bidAmount.value = digits ? Number(digits).toLocaleString('en-US') : ''
+    bidError.hidden = true
+  })
+
+  const submitCustom = () => {
+    if (!bidBrand) return
+    const current = parseCount(bidBrand.amount)
+    const entered = Math.floor(Number(bidAmount.value.replace(/[^0-9]/g, '')))
+
+    if (!Number.isFinite(entered) || entered <= 0) {
+      bidError.textContent = 'Enter a whole dollar amount.'
+      bidError.hidden = false
+      bidAmount.focus()
+      return
+    }
+    if (entered <= current) {
+      bidError.textContent = `Your bid has to beat the current ${money(current)}.`
+      bidError.hidden = false
+      bidAmount.focus()
+      return
+    }
+
+    confirmBid(entered)
+  }
+
+  bidSubmit.addEventListener('click', submitCustom)
+  bidAmount.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      submitCustom()
+    }
+  })
+
+  bidRemove.addEventListener('click', () => {
+    const spot = bidSpotItem
+    closeBid()
+    if (spot) studio.clearZone(spot.id)
+  })
+
+  bidClose.addEventListener('click', closeBid)
+  bidScrim.addEventListener('click', closeBid)
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !bidModal.hidden) closeBid()
+  })
+
   /* ------------------------------------------------------------ brand grid */
 
   const buildBrands = () => {
@@ -130,10 +282,7 @@ export function initStudio({ studio, onOpenChange }) {
       label.textContent = brand.label
       card_.append(label)
 
-      card_.addEventListener('click', () => {
-        const arming = studio.armed?.id !== brand.id
-        studio.setArmed(arming ? brand : null)
-      })
+      card_.addEventListener('click', () => openBid(brand))
 
       brandsGrid.append(card_)
     }
@@ -190,13 +339,9 @@ export function initStudio({ studio, onOpenChange }) {
       const label = document.createElement('span')
       label.textContent = brand.label
       tile.append(label)
-      tile.addEventListener('click', () => {
-        const arming = studio.armed?.id !== brand.id
-        studio.setArmed(arming ? brand : null)
-      })
+      tile.addEventListener('click', () => openBid(brand))
       brandsGrid.prepend(tile)
-
-      studio.setArmed(brand)
+      openBid(brand)
     } catch {
       hint.textContent = 'That file could not be read as an image'
     }
@@ -265,6 +410,8 @@ export function initStudio({ studio, onOpenChange }) {
   /* ------------------------------------------------------------------ render */
 
   let noticeTimer = null
+
+  studio.onOpenBid = (brand, item) => openBid(brand, item)
 
   studio.onNotice = (message) => {
     hint.classList.remove('is-armed')

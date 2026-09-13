@@ -299,6 +299,209 @@ function buildWallFrames() {
   return group
 }
 
+/* --------------------------------------------------- wall photo frame ---- */
+
+/**
+ * Framed photos on the arena walls, in the style of the neon-screen reference:
+ * portrait prints floating just off the walls, edged in cyan.
+ *
+ * One hangs on the -X wall so it reads beside the figure in left-shoulder
+ * views, and a mirrored copy hangs on the +X wall for right-shoulder views
+ * (orbit to either side / open a deltoid spot) — like the neon-screen reference.
+ *
+ * Drop the artwork in as `public/wall-photo.png` (served at `/wall-photo.png`).
+ * Any portrait PNG/JPG works — transparency is preserved. If the file is
+ * missing, a dark placeholder panel shows instead so the frame still reads.
+ */
+export const WALL_PHOTO = {
+  photoWidth: 0.72,
+  photoHeight: 1.2,
+  framePad: 0.08,
+  chamfer: 0.1,
+  frames: [
+    { position: [-3.1, 1.32, -1.9], url: '/wall-photo.png' },
+    { position: [3.1, 1.32, -1.9], url: '/wall-photo-2.jpg' },
+  ],
+}
+
+function placeholderPhotoTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 860
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#0a141e'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.strokeStyle = 'rgba(63,233,255,0.35)'
+  ctx.lineWidth = 3
+  ctx.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
+  ctx.fillStyle = 'rgba(198,242,240,0.75)'
+  ctx.font = "500 30px 'JetBrains Mono', monospace"
+  ctx.textAlign = 'center'
+  ctx.fillText('Add', canvas.width / 2, canvas.height / 2 - 24)
+  ctx.fillText('public/wall-photo.png', canvas.width / 2, canvas.height / 2 + 16)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+function scanlineTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 4
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = 'rgba(0,0,0,0)'
+  ctx.fillRect(0, 0, 4, 4)
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'
+  ctx.fillRect(0, 0, 4, 1)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(1, 220)
+  return texture
+}
+
+/** Chamfered-rectangle outline points (Image2's cut-corner frame). */
+function chamferedRectPoints(w, h, c) {
+  const hw = w / 2
+  const hh = h / 2
+  return [
+    [-hw + c, -hh], [hw - c, -hh], [hw, -hh + c], [hw, hh - c],
+    [hw - c, hh], [-hw + c, hh], [-hw, hh - c], [-hw, -hh + c],
+  ]
+}
+
+function borderLines(w, h, c, color, opacity) {
+  const pts = chamferedRectPoints(w, h, c)
+  const positions = []
+  for (let i = 0; i < pts.length; i += 1) {
+    const [x1, y1] = pts[i]
+    const [x2, y2] = pts[(i + 1) % pts.length]
+    positions.push(x1, y1, 0, x2, y2, 0)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({
+      color: new THREE.Color(color).multiplyScalar(1.25),
+      transparent: true,
+      opacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  )
+}
+
+function buildWallPhoto(position, name, url) {
+  const group = new THREE.Group()
+  group.name = name
+
+  const { photoWidth: pw, photoHeight: ph, framePad: pad, chamfer: ch } = WALL_PHOTO
+  const outerW = pw + pad * 2
+  const outerH = ph + pad * 2
+
+  // Dark backing panel.
+  const backing = new THREE.Mesh(
+    new THREE.PlaneGeometry(outerW, outerH),
+    new THREE.MeshStandardMaterial({
+      color: 0x0a121c,
+      roughness: 0.6,
+      metalness: 0.3,
+    }),
+  )
+  group.add(backing)
+
+  // Soft cyan halo on the wall behind the frame.
+  const halo = new THREE.Mesh(
+    new THREE.PlaneGeometry(outerW * 1.6, outerH * 1.6),
+    new THREE.MeshBasicMaterial({
+      map: radialTexture('rgba(63,233,255,0.5)'),
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  )
+  halo.position.z = -0.02
+  group.add(halo)
+
+  // The print itself. Starts as a placeholder until its artwork resolves.
+  const photoMat = new THREE.MeshBasicMaterial({
+    map: placeholderPhotoTexture(),
+    transparent: true,
+    fog: false,
+    toneMapped: false,
+  })
+  const photo = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), photoMat)
+  photo.position.z = 0.012
+  group.add(photo)
+
+  new THREE.TextureLoader().load(
+    url,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.anisotropy = 8
+      // Cover-fit without stretching: narrow prints letterbox, wide prints
+      // centre-crop via UVs.
+      const imgAspect = texture.image.width / texture.image.height
+      const frameAspect = pw / ph
+      if (imgAspect < frameAspect) {
+        photo.scale.x = imgAspect / frameAspect
+      } else if (imgAspect > frameAspect) {
+        texture.repeat.x = frameAspect / imgAspect
+        texture.offset.x = (1 - texture.repeat.x) / 2
+      }
+      photoMat.map = texture
+      photoMat.needsUpdate = true
+    },
+    undefined,
+    () => {
+      // No artwork yet — the placeholder panel stays up. Not an error.
+      console.info(`[wall-photo] ${url} not found, showing placeholder frame.`)
+    },
+  )
+
+  // Scanline sheen so the print reads as a backlit screen like the reference.
+  const scan = new THREE.Mesh(
+    new THREE.PlaneGeometry(pw, ph),
+    new THREE.MeshBasicMaterial({
+      map: scanlineTexture(),
+      transparent: true,
+      opacity: 0.16,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    }),
+  )
+  scan.position.z = 0.02
+  group.add(scan)
+
+  // Double neon edge — outer frame + tight inner edge around the print.
+  const outer = borderLines(outerW, outerH, ch, CYAN_HI, 0.95)
+  outer.position.z = 0.015
+  group.add(outer)
+
+  const inner = borderLines(pw + 0.03, ph + 0.03, ch * 0.6, CYAN, 0.7)
+  inner.position.z = 0.016
+  group.add(inner)
+
+  const [x, y, z] = position
+  group.position.set(x, y, z)
+  group.lookAt(0, y, 0)
+
+  return group
+}
+
+/** One framed print per side wall. */
+function buildWallPhotos() {
+  const group = new THREE.Group()
+  group.name = 'wall-photos'
+  WALL_PHOTO.frames.forEach((frame, index) => {
+    group.add(buildWallPhoto(frame.position, index === 0 ? 'wall-photo' : `wall-photo-${index + 1}`, frame.url))
+  })
+  return group
+}
+
 /**
  * The occlusion pool under the figure. Its own profile rather than the glow
  * helper: a contact shadow needs a dense core and a fast falloff, which is the
@@ -315,10 +518,10 @@ function shadowTexture() {
   canvas.height = size
   const ctx = canvas.getContext('2d')
   const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  g.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  g.addColorStop(0.3, 'rgba(0, 0, 0, 0.94)')
-  g.addColorStop(0.52, 'rgba(0, 0, 0, 0.6)')
-  g.addColorStop(0.74, 'rgba(0, 0, 0, 0.22)')
+  g.addColorStop(0, 'rgba(0, 0, 0, 0.88)')
+  g.addColorStop(0.3, 'rgba(0, 0, 0, 0.78)')
+  g.addColorStop(0.52, 'rgba(0, 0, 0, 0.46)')
+  g.addColorStop(0.74, 'rgba(0, 0, 0, 0.16)')
   g.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, size, size)
@@ -434,10 +637,10 @@ function buildPedestal() {
       80,
     ),
     new THREE.MeshStandardMaterial({
-      color: 0x0a1017,
+      color: 0x5b7488,
       roughness: 0.62,
       metalness: 0.18,
-      emissive: new THREE.Color(CYAN).multiplyScalar(0.02),
+      emissive: new THREE.Color(CYAN).multiplyScalar(0.05),
     }),
   )
   disc.position.y = (TOP + BOTTOM) / 2
@@ -447,10 +650,10 @@ function buildPedestal() {
   const top = new THREE.Mesh(
     new THREE.CircleGeometry(ARENA.pedestalRadius, 80),
     new THREE.MeshStandardMaterial({
-      color: 0x0a131d,
+      color: 0x6b8699,
       roughness: 0.5,
       metalness: 0.2,
-      emissive: new THREE.Color(CYAN).multiplyScalar(0.015),
+      emissive: new THREE.Color(CYAN).multiplyScalar(0.04),
     }),
   )
   top.rotation.x = -Math.PI / 2
@@ -536,6 +739,7 @@ export function buildEnvironment(scene, renderer) {
   root.add(buildSky())
   root.add(buildWall())
   root.add(buildWallFrames())
+  root.add(buildWallPhotos())
   root.add(buildPillars())
   root.add(buildPedestal())
 

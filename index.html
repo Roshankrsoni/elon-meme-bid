@@ -16,6 +16,9 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/styles/main.css" />
+
+    <!-- Analytics (Umami) -->
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="6aa53f61-64ce-48f3-accd-7a60c346f8b8"></script>
   </head>
   <body>
     <div class="stage">
@@ -96,11 +99,10 @@
       </figure>
 
       <section class="hud__block hud__block--bl" aria-label="Live activity">
-        <p class="watchers">
-          <span class="pulse" aria-hidden="true"></span>
-          <strong id="js-watchers">8,684</strong> watched today
-          <span class="linkbtn linkbtn--plain">Datafast&nbsp;↗</span>
-        </p>
+        <div class="jotform-slot">
+          <div id="JFWebsiteWidget-01a09689dae070008b1a506ae76731fe06ca"></div>
+          <script src="https://www.jotform.com/website-widgets/embed/01a09689dae070008b1a506ae76731fe06ca"></script>
+        </div>
         <ol class="ticker" id="js-ticker" aria-live="off"></ol>
       </section>
 
@@ -127,7 +129,7 @@
         <header class="studio__head">
           <div>
             <h2>Brand studio</h2>
-            <p>Eight spots on the body. Claim one.</p>
+            <p>Eleven spots on the body. Claim one.</p>
           </div>
           <button type="button" class="iconbtn iconbtn--close" id="js-studioclose" title="Close">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
@@ -209,6 +211,61 @@
         </footer>
       </div>
     </aside>
+
+    <!-- ── Bid modal ────────────────────────────────────────────────────── -->
+    <div class="bidmodal" id="js-bidmodal" role="dialog" aria-modal="true" aria-labelledby="bid-title" hidden>
+      <div class="bidmodal__scrim" id="js-bidscrim"></div>
+
+      <div class="bidmodal__card">
+        <header class="bidmodal__head">
+          <img class="bidmodal__logo" id="bid-logo" alt="" />
+          <div class="bidmodal__id">
+            <h2 id="bid-title">Volt</h2>
+            <p id="bid-handle">@volt</p>
+          </div>
+          <button type="button" class="iconbtn iconbtn--close" id="js-bidclose" title="Close">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          </button>
+        </header>
+
+        <div class="bidmodal__body">
+          <p class="bidmodal__spot" id="bid-spot">Right chest</p>
+
+          <div class="bidrow">
+            <span class="bidrow__label">Current bid</span>
+            <span class="bidrow__value" id="bid-current">$8,000</span>
+          </div>
+          <p class="bidmodal__note" id="bid-note"></p>
+
+          <button type="button" class="bidtake" id="js-bidtake">
+            <span class="bidtake__label">Take this spot</span>
+            <span class="bidtake__price" id="bid-take">$8,001</span>
+          </button>
+          <p class="bidmodal__hint">Outbids the standing price by $1 and claims it instantly.</p>
+
+          <div class="bidcustom">
+            <label for="js-bidamount">Or name your price</label>
+            <div class="bidcustom__row">
+              <span class="bidcustom__prefix">$</span>
+              <input
+                type="text"
+                id="js-bidamount"
+                inputmode="numeric"
+                placeholder="12,000"
+                autocomplete="off"
+                aria-describedby="js-biderror"
+              />
+              <button type="button" class="bidcustom__submit" id="js-bidsubmit">Place bid</button>
+            </div>
+            <p class="bidcustom__error" id="js-biderror" role="alert" hidden></p>
+          </div>
+
+          <button type="button" class="bidremove" id="js-bidremove" hidden>
+            Remove from this spot
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -7,7 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
 import { buildEnvironment } from './scene/environment.js'
 import { loadAvatar } from './scene/model.js'
-import { BodyZones } from './scene/stickers.js'
+import { BrandSlots } from './scene/brandSlots.js'
 import { initHud } from './ui/hud.js'
 import { initStudio } from './ui/panel.js'
 import { camera as cameraConfig, orbit } from './config.js'
@@ -269,7 +269,7 @@ async function boot() {
    * waits on the loader. The zone system is built before the scan exists and is
    * handed the avatar once it lands.
    */
-  studio = new BodyZones({ scene, camera, canvas })
+  studio = new BrandSlots({ scene, camera, canvas })
 
   panel = initStudio({
     studio,
@@ -389,6 +389,14 @@ if (DEBUG || import.meta.env?.DEV) {
     },
     get studio() {
       return studio
+    },
+    /** The BrandSlots system: slot list, anatomy, and the layers on the body. */
+    get brandSlots() {
+      return studio
+    },
+    /** Landmarks measured from the scan, for verifying a placement. */
+    get anatomy() {
+      return studio?.anatomy ?? null
     },
     get avatar() {
       return avatar

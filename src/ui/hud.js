@@ -70,24 +70,12 @@ function initTicker(root) {
   render()
 
   // A slow shuffle so the board reads as live activity. Purely cosmetic.
+  // Countries rotate once every 5 seconds.
   return setInterval(() => {
     cursor = (cursor + 1) % leaderboard.length
     root.prepend(tickerRow(leaderboard[(cursor + VISIBLE_ROWS - 1) % leaderboard.length], 0))
     while (root.children.length > VISIBLE_ROWS) root.lastElementChild.remove()
-  }, 4200)
-}
-
-/* ------------------------------------------------------------ watchers --- */
-
-function initWatchers(node) {
-  let value = site.watchers
-  const format = new Intl.NumberFormat('en-US')
-  node.textContent = format.format(value)
-
-  return setInterval(() => {
-    value += Math.floor(Math.random() * 5) + 1
-    node.textContent = format.format(value)
-  }, 3200)
+  }, 5000)
 }
 
 /* ------------------------------------------------------------------ hud --- */
@@ -99,7 +87,6 @@ export function initHud({ onResetCamera, onToggleSponsors }) {
   const timers = [
     initCountdown(document.querySelector('#js-countdown')),
     initTicker(document.querySelector('#js-ticker')),
-    initWatchers(document.querySelector('#js-watchers')),
   ]
 
   paintAvatar(document.querySelector('#js-avatar'))

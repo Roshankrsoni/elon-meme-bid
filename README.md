@@ -34,24 +34,67 @@ hovering `model.baseY` above the dais. Two details worth knowing:
   factor 1. Without the environment map built in `environment.js` the body
   renders as a black mirror.
 
-**The patches** — `src/ui/patches.js` draws every patch on a canvas at runtime,
-so the project ships with no branding assets of its own. `src/scene/stickers.js`
-places them:
+**The patches** — `src/ui/patches.js` draws every slot's artwork on a canvas at
+runtime, so the project ships with no branding assets of its own:
 
-1. A click raycasts the body and takes the hit point and surface normal.
-2. A quad is built in the avatar's local space and **bent onto the skin**: each
-   grid vertex is cast along the surface normal and pulled onto the first face it
-   meets, so a flat decal cannot sink into a curved chest.
+- Torso slots are the reference's sticker: one flat fill (acid lime, or orange
+  for the hero slot), rounded corners, a fine white dashed ring hugging the
+  silhouette, and exactly one mark inside it — a hand-drawn glyph or a code.
+  Nothing else is printed on them, so the mark is the only thing that reads at
+  a few centimetres across.
+- Limb slots carry text instead. Each one is a strap split along its length into
+  two columns of type set on the limb's axis: the brand in ink on the fill, the
+  model inverted (white on black) beside it. A hero-coloured strap keeps both
+  columns in its own colour.
+
+The same artwork drives the brand tiles in the studio panel (`logoDataUrl`), so
+the card and the body read as one system.
+
+**The brand slots** — the scan is an unskinned, unnamed photogrammetry mesh, so
+there are no bones or semantic node names to place a logo against. Two modules
+solve that:
+
+- `src/scene/anatomy.js` measures the body from its own vertices: the up axis,
+  the direction the chest and face point, and the landmarks (shoulder line,
+  pectoral bulge, waist, hip) plus per-height silhouette widths. Nothing assumes
+  a fixed X/Y/Z convention. On this scan it recovers `up = +Y`, `front = +Z`,
+  `left = +X`, a shoulder line at 0.77 of the bust and the pectorals at 0.60.
+- `src/scene/brandSlots.js` expresses the eleven slots as *anatomical* requests —
+  a lateral offset, a height fraction and an outward facing direction — then
+  resolves each one onto the real surface:
+
+1. A ray is cast inward along the slot's own facing direction from a point
+   outside the body. A short tangential sweep picks the most squarely-facing
+   surface near the nominal spot, so a slot lands on the flat of a pec or the
+   outside of a biceps rather than on a crease. Limb slots carry a lateral guard
+   so they cannot fold back onto the ribcage.
+2. The quad is built in the avatar's local space and **bent onto the skin**:
+   each grid vertex is cast along the surface normal and pulled onto the first
+   face it meets, so a flat decal cannot sink into a curved chest.
 3. Two guards keep a placement honest. A vertex is only accepted if it lands
    within `width * 0.25` of the tangent plane *and* its face points roughly the
    same way as the hit — that is what stops a patch from jumping onto a hand in
    front of the belly. If too little of the quad lands on the body
    (`placement.minCoverage`), the placement is refused with a message.
 
+The result is eleven nodes under one `BrandSlots` group, parented to the avatar
+so they rotate with the body:
+
+```
+BrandSlots
+├── Chest_Left      ├── Shoulder_Left     ├── Back_Left
+├── Chest_Right     ├── Shoulder_Right    ├── Back_Right
+├── UpperArm_Left   ├── Forearm_Left      └── Back_Waist
+├── UpperArm_Right  ├── Forearm_Right
+```
+
+Each node carries a `slotId` and is independently selectable, re-sized and
+re-brandable at runtime.
+
 The scan is ~2M triangles, so a plain `Raycaster` costs tens of milliseconds per
-ray and conforming a patch needs ~340 of them. `three-mesh-bvh` is therefore not
+ray and conforming a slot needs ~340 of them. `three-mesh-bvh` is therefore not
 optional: it is patched onto `Mesh`/`BufferGeometry` at the top of
-`stickers.js` and the tree is built once during the loading screen.
+`brandSlots.js` and the tree is built once during the loading screen.
 
 **The HUD** — `src/ui/hud.js` drives the countdown, the live ticker, the watchers
 counter and the stream controls. `src/ui/placeholders.js` draws the profile
@@ -122,7 +165,8 @@ src/main.js              renderer, camera, bloom, resize, boot
 src/config.js            copy and tunables
 src/scene/environment.js arena, dais, beam, lights, environment map
 src/scene/model.js       scan loading, normalisation, holographic fade
-src/scene/stickers.js    BVH raycasting and the patch placement engine
+src/scene/anatomy.js     measures the body's axes and anatomical landmarks
+src/scene/brandSlots.js  the eleven brand slots, BVH raycasting and decal fitting
 src/ui/patches.js        procedural patch artwork
 src/ui/panel.js          Brand studio wiring
 src/ui/hud.js            countdown, ticker, HUD controls
