@@ -1,9 +1,14 @@
 import { logoDataUrl, patchAspect } from './patches.js'
 import {
+  MIN_BID_USD,
+  bumpLocalSpotClick,
   createBid,
+  fetchSpotClicks,
+  getLocalSpotClicks,
   getTopPaidBid,
   isValidEmail,
   normalizeUrl,
+  recordSpotClick,
   startCheckout,
   uploadBrandImage,
   validateLogoFile,
@@ -52,6 +57,9 @@ export function initSponsors({ studio }) {
   const bidError = document.querySelector('#js-biderror')
   const bidSpot = document.querySelector('#bid-spot')
   const bidRemove = document.querySelector('#js-bidremove')
+  const bidHint = document.querySelector('#js-bidhint')
+  const bidMinPill = document.querySelector('#js-bidmin')
+  const bidClicks = document.querySelector('#js-bidclicks')
 
   // Buyer details.
   const bidName = document.querySelector('#js-bidname')
@@ -75,8 +83,9 @@ export function initSponsors({ studio }) {
       return
     }
     sponsorsModal.hidden = false
-    // Let the browser paint the dialog before the open transition starts.
-    requestAnimationFrame(() => sponsorsModal.classList.add('is-open'))
+    // Two frames: unhide paints first, the transition starts on the next one.
+    // A single rAF can fire before first paint and swallow the animation.
+    requestAnimationFrame(() => requestAnimationFrame(() => sponsorsModal.classList.add('is-open')))
     document.body.classList.add('is-modal')
     sponsorsClose.focus({ preventScroll: true })
   }
@@ -102,9 +111,32 @@ export function initSponsors({ studio }) {
   sponsorsScrim.addEventListener('click', closeSponsors)
 
   /** One row per spot on the body: logo, spot name, brand and price. */
+  let pendingLogos = []
+  let logoFillQueued = false
+
+  // Logo PNG encodes run after first paint so the dialog opens instantly;
+  // the cache makes repeat opens free either way.
+  const scheduleLogoFill = () => {
+    if (logoFillQueued) return
+    logoFillQueued = true
+    const fill = () => {
+      logoFillQueued = false
+      for (const [img, brand] of pendingLogos.splice(0)) {
+        if (img.isConnected) img.src = logoDataUrl(brand, 96)
+      }
+    }
+    if ('requestIdleCallback' in window) requestIdleCallback(fill, { timeout: 400 })
+    else requestAnimationFrame(() => requestAnimationFrame(fill))
+  }
+
+  const sponsorsSig = () => [...studio.items.values()].map((item) => `${item.id}:${item.brand.id}`).join('|')
+  let lastSponsorsSig = ''
+
   const renderSponsors = () => {
     const items = [...studio.items.values()]
+    lastSponsorsSig = sponsorsSig()
     sponsorsList.replaceChildren()
+    pendingLogos = []
     sponsorsEmpty.hidden = items.length > 0
     sponsorsSub.textContent =
       items.length > 0 ? `${items.length} spots on the body.` : 'Every spot on the body.'
@@ -121,8 +153,11 @@ export function initSponsors({ studio }) {
 
       const logo = document.createElement('img')
       logo.className = 'sponsor__logo'
-      logo.src = logoDataUrl(brand, 96)
       logo.alt = open ? '' : `${brand.label} logo`
+      logo.decoding = 'async'
+      // src fills in after paint (see scheduleLogoFill) — fixed CSS size,
+      // so rows never shift when the artwork lands.
+      pendingLogos.push([logo, brand])
 
       const id = document.createElement('span')
       id.className = 'sponsor__id'
@@ -130,6 +165,8 @@ export function initSponsors({ studio }) {
       const spot = document.createElement('span')
       spot.className = 'sponsor__spot'
       spot.textContent = item.def.label
+      spot.dataset.spotId = item.id
+      spot.dataset.base = item.def.label
 
       const name = document.createElement('span')
       name.className = 'sponsor__brand'
@@ -138,7 +175,7 @@ export function initSponsors({ studio }) {
 
       const amount = document.createElement('span')
       amount.className = 'sponsor__amount'
-      amount.textContent = open ? 'From $1,000' : brand.amount
+      amount.textContent = open ? `From $${item.def.minBid ?? MIN_BID_USD}` : brand.amount
 
       id.append(spot, name)
       button.append(logo, id, amount)
@@ -151,17 +188,64 @@ export function initSponsors({ studio }) {
       row.append(button)
       sponsorsList.append(row)
     }
+    scheduleLogoFill()
+    refreshSponsorClicks()
+  }
+
+  // Fills per-spot tap counts into the open list (global totals, falling
+  // back to this visitor's own counts when the backend is off).
+  const refreshSponsorClicks = async () => {
+    let totals
+    try {
+      totals = await fetchSpotClicks()
+    } catch {
+      totals = new Map()
+    }
+    const local = getLocalSpotClicks()
+    for (const el of sponsorsList.querySelectorAll('[data-spot-id]')) {
+      if (!el.isConnected) continue
+      const n = totals.get(el.dataset.spotId) ?? Number(local[el.dataset.spotId]) ?? 0
+      el.textContent = n > 0 ? `${el.dataset.base} · ${n.toLocaleString('en-US')} clicks` : el.dataset.base
+    }
   }
 
   /* -------------------------------------------------------------- bid modal */
 
   let bidBrand = null
   let bidSpotItem = null
-  let bidCurrentAmount = 0
+  let bidFloor = MIN_BID_USD
   let bidBusy = false
   let previewUrl = null
 
   const SHAPE_WORDS = { square: 'square print', band: 'strap', wide: 'wide banner' }
+
+  /** Tap counter line in the bid dialog: global total plus your own taps. */
+  const paintBidClicks = (spot, total) => {
+    const mine = Number(getLocalSpotClicks()[spot.id]) || 0
+    const parts = []
+    if (total > 0) parts.push(`${total.toLocaleString('en-US')} click${total === 1 ? '' : 's'} on this spot`)
+    if (mine > 0) parts.push(`${mine} by you`)
+    if (!parts.length) {
+      bidClicks.hidden = true
+      return
+    }
+    bidClicks.textContent = `👆 ${parts.join(' · ')}`
+    bidClicks.hidden = false
+  }
+
+  const renderBidClicks = (spot, brand) => {
+    if (!spot || brand.mark === 'empty') {
+      bidClicks.hidden = true
+      return
+    }
+    paintBidClicks(spot, 0)
+    fetchSpotClicks()
+      .then((totals) => {
+        if (bidSpotItem !== spot || bidModal.hidden) return
+        paintBidClicks(spot, totals.get(spot.id) ?? 0)
+      })
+      .catch(() => {})
+  }
 
   /** Sticker-size suggestion so the buyer's logo fits the spot it lands on. */
   const renderSizeHint = (spot) => {
@@ -270,29 +354,34 @@ export function initSponsors({ studio }) {
     bidBusy = false
 
     const current = parseCount(brand.amount)
-    bidCurrentAmount = current
-    const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
-
     const open = brand.mark === 'empty'
+    // Starting bid: the spot's own floor when open, current + $1 above that.
+    const startBid = open ? (spot?.def?.minBid ?? MIN_BID_USD) : current + 1
+    bidFloor = startBid
+    const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
 
     bidLogo.src = logoDataUrl(brand, 128)
     bidLogo.alt = open ? '' : `${brand.label} logo`
     bidTitle.textContent = open ? 'This spot is open' : brand.label
     bidHandle.textContent = open ? 'Be the first bid' : brand.handle
-    bidCurrent.textContent = open ? '—' : money(current)
-    bidTakePrice.textContent = open ? 'From $1,000' : money(current + 1)
+    bidCurrent.textContent = open ? `From $${startBid}` : money(current)
+    bidTakePrice.textContent = money(startBid)
+    bidMinPill.textContent = `Min ${money(startBid)}`
     bidSpot.textContent = spot ? `Spotted on the ${spot.def.label.toLowerCase()}` : 'Sponsor a spot'
     bidSpot.hidden = !spot
     bidRemove.hidden = !spot || open
+    bidHint.textContent = open
+      ? `Minimum bid is $${startBid}. You pay securely — the spot updates once payment succeeds.`
+      : 'Outbids the standing price by $1. You pay securely — the spot updates once payment succeeds.'
 
     bidNote.textContent = open
-      ? 'No sponsor yet. Take it at the base rate, or name your own price.'
+      ? `No sponsor yet. Take it from $${startBid}, or name your own price.`
       : spots.length
         ? `Currently on the ${spots.map((entry) => entry.def.label.toLowerCase()).join(' and ')} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
         : `${brand.blurb} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
 
     bidAmount.value = ''
-    bidAmount.placeholder = money(current + 1).slice(1)
+    bidAmount.placeholder = money(startBid).slice(1)
     bidError.hidden = true
 
     // Buyer details start fresh; default the name to the standing brand.
@@ -308,13 +397,14 @@ export function initSponsors({ studio }) {
     bidPreview.hidden = true
     bidFileTitle.textContent = 'Upload brand image'
     bidDetailsError.hidden = true
-    setBidBusy(false, current + 1)
+    setBidBusy(false, startBid)
     renderSizeHint(spot)
+    renderBidClicks(spot, brand)
     renderFitNote(null)
 
     bidModal.hidden = false
-    // Let the browser paint the dialog before the open transition starts.
-    requestAnimationFrame(() => bidModal.classList.add('is-open'))
+    // Two frames: unhide paints first, the transition starts on the next one.
+    requestAnimationFrame(() => requestAnimationFrame(() => bidModal.classList.add('is-open')))
     document.body.classList.add('is-modal')
     // Focus the primary action, not the text field — focusing the field pops
     // the keyboard over the button on phones.
@@ -328,7 +418,7 @@ export function initSponsors({ studio }) {
           if (!top || bidSpotItem !== spot || bidModal.hidden) return
           const live = Math.max(current, Math.floor(top.amount))
           if (live === current) return
-          bidCurrentAmount = live
+          bidFloor = live + 1
           bidCurrent.textContent = money(live)
           if (!bidBusy) bidTakePrice.textContent = money(live + 1)
           bidAmount.placeholder = money(live + 1).slice(1)
@@ -358,7 +448,7 @@ export function initSponsors({ studio }) {
 
   bidTakeBtn.addEventListener('click', () => {
     if (!bidBrand || bidBusy) return
-    confirmBid(bidCurrentAmount + 1)
+    confirmBid(bidFloor)
   })
 
   // Keep the field reading as money while it is typed into.
@@ -378,8 +468,11 @@ export function initSponsors({ studio }) {
       bidAmount.focus()
       return
     }
-    if (entered <= bidCurrentAmount) {
-      bidError.textContent = `Your bid has to beat the current ${money(bidCurrentAmount)}.`
+    if (entered < bidFloor) {
+      bidError.textContent =
+        bidBrand.mark === 'empty'
+          ? `Minimum bid is $${bidFloor}.`
+          : `Your bid has to beat the current ${money(bidFloor - 1)}.`
       bidError.hidden = false
       bidAmount.focus()
       return
@@ -449,9 +542,17 @@ export function initSponsors({ studio }) {
   // that spot directly. The sponsors list never opens from the body.
   studio.onOpenBid = (brand, item) => openBid(brand, item)
 
-  // Keep the open sponsors list truthful while bids land.
+  // Taps on placed brands count — locally per visitor, globally per spot.
+  studio.onSpotClick = (item) => {
+    bumpLocalSpotClick(item.id)
+    recordSpotClick(item.id)
+  }
+
+  // Rebuild the open list only when its contents change — hover/focus
+  // changes emit too, and a full rebuild per pointer move is pure jank.
   studio.onChange(() => {
-    if (!sponsorsModal.hidden) renderSponsors()
+    if (sponsorsModal.hidden || sponsorsSig() === lastSponsorsSig) return
+    renderSponsors()
   })
 
   renderSponsors()

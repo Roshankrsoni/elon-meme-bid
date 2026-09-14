@@ -12,3 +12,6 @@ cache/*
 # Web build
 node_modules/
 dist/
+
+# Local secrets — never commit
+.env

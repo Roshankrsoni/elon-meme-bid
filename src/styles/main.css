@@ -609,7 +609,9 @@ svg {
   border-radius: 22px;
   border: 1px solid var(--line);
   background: linear-gradient(200deg, rgba(15, 23, 33, 0.72), rgba(7, 12, 18, 0.78));
-  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  will-change: transform, opacity;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.66);
   transform: translateY(14px) scale(0.98);
   opacity: 0;
@@ -694,6 +696,7 @@ svg {
   flex: none;
   border-radius: 12px;
   display: block;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .sponsor__id {
@@ -897,7 +900,9 @@ svg {
   border-radius: 22px;
   border: 1px solid var(--line);
   background: linear-gradient(200deg, rgba(15, 23, 33, 0.72), rgba(7, 12, 18, 0.78));
-  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  will-change: transform, opacity;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.66);
   transform: translateY(14px) scale(0.98);
   opacity: 0;
@@ -976,6 +981,15 @@ svg {
   line-height: 1.5;
   color: var(--muted-2);
 }
+
+.bidmodal__clicks {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-hi);
+}
+
+.bidmodal__clicks[hidden] { display: none; }
 
 .bidtake {
   display: flex;
@@ -1114,6 +1128,8 @@ svg {
   .bidmodal__body { padding: 16px 18px 26px; }
   .bidcustom { margin-inline: -18px; padding-inline: 18px; }
   .bidbrand { margin-inline: -18px; padding-inline: 18px; }
+  .bidamount { margin-inline: -18px; padding-inline: 18px; }
+  .bidamount .bidcustom { margin-inline: 0; padding-inline: 0; }
   /* Comfortable touch target. */
   .iconbtn--close { width: 38px; height: 38px; }
   .bidrow__value { font-size: 26px; }
@@ -1178,6 +1194,30 @@ body.is-modal { overflow: hidden; }
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.req {
+  font-style: normal;
+  color: var(--pink);
+}
+
+.bidbrand__legend {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.minpill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(31, 214, 240, 0.12);
+  color: var(--accent-hi);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
 }
 
 .bidbrand__size {
@@ -1272,6 +1312,21 @@ body.is-modal { overflow: hidden; }
 }
 
 .bidbrand .bidcustom__error { margin-top: 10px; }
+
+/* ── bid modal: amount section ──────────────────────────── */
+
+.bidamount {
+  margin: 20px -20px 0;
+  padding: 18px 20px 0;
+  border-top: 1px solid var(--line);
+}
+
+.bidamount .bidtake { margin-top: 12px; }
+
+.bidamount .bidcustom {
+  margin: 16px 0 0;
+  padding: 16px 0 0;
+}
 
 /* ── floating toast ─────────────────────────────────────── */
 

@@ -1,4 +1,5 @@
 import { leaderboard, profile, site } from '../config.js'
+import { fetchLiveLeaderboard, fetchTickerCountries } from '../lib/bidding.js'
 import { avatarPhoto } from './placeholders.js'
 
 const pad = (value) => String(Math.max(0, Math.floor(value))).padStart(2, '0')
@@ -88,23 +89,25 @@ function tickerRow(entry, index) {
 }
 
 function initTicker(root) {
+  // Static countries until paid bids exist — then the live leaderboard.
+  let board = [...leaderboard]
   let cursor = 0
   let elapsed = 0
 
+  const visibleRows = () =>
+    board.length <= VISIBLE_ROWS
+      ? board
+      : Array.from({ length: VISIBLE_ROWS }, (_, index) => board[(cursor + index) % board.length])
+
   const render = () => {
-    root.replaceChildren(
-      ...Array.from({ length: VISIBLE_ROWS }, (_, index) =>
-        tickerRow(leaderboard[(cursor + index) % leaderboard.length], index),
-      ),
-    )
+    root.replaceChildren(...visibleRows().map((entry, index) => tickerRow(entry, index)))
   }
 
   // Refreshes the clocks in place every second; countries rotate every 5th tick.
   const refreshTimes = () => {
-    const rows = root.children
+    const rows = visibleRows()
     for (let i = 0; i < rows.length; i += 1) {
-      const entry = leaderboard[(cursor + i) % leaderboard.length]
-      const node = rows[i].querySelector('.t')
+      const node = root.children[i]?.querySelector('.t')
       if (node) node.textContent = `${liveTime()} ${visitorCode}`
     }
   }
@@ -113,15 +116,41 @@ function initTicker(root) {
 
   // A slow shuffle so the board reads as live activity. Purely cosmetic.
   // Countries rotate once every 5 seconds; clocks tick every second.
-  return setInterval(() => {
+  const spinTimer = setInterval(() => {
     elapsed += 1
-    if (elapsed % 5 === 0) {
-      cursor = (cursor + 1) % leaderboard.length
-      root.prepend(tickerRow(leaderboard[(cursor + VISIBLE_ROWS - 1) % leaderboard.length], 0))
+    if (elapsed % 5 === 0 && board.length > VISIBLE_ROWS) {
+      cursor = (cursor + 1) % board.length
+      root.prepend(tickerRow(board[(cursor + VISIBLE_ROWS - 1) % board.length], 0))
       while (root.children.length > VISIBLE_ROWS) root.lastElementChild.remove()
     }
     refreshTimes()
   }, 1000)
+
+  // Paid bids first, then the DB country list, then the baked-in list —
+  // each step falls back silently to the previous one.
+  const pullBoard = async () => {
+    try {
+      const live = await fetchLiveLeaderboard()
+      if (live?.length) {
+        board = live
+        cursor = 0
+        render()
+        return
+      }
+      const countries = await fetchTickerCountries()
+      if (countries?.length) {
+        board = countries
+        cursor = 0
+        render()
+      }
+    } catch {
+      // Offline or backend off — the static board keeps ticking.
+    }
+  }
+  pullBoard()
+  const liveTimer = setInterval(pullBoard, 30000)
+
+  return [spinTimer, liveTimer]
 }
 
 /* ------------------------------------------------------------------ hud --- */
@@ -129,7 +158,7 @@ function initTicker(root) {
 export function initHud({ onResetCamera, onToggleSponsors }) {
   const timers = [
     initCountdown(document.querySelector('#js-countdown')),
-    initTicker(document.querySelector('#js-ticker')),
+    ...initTicker(document.querySelector('#js-ticker')),
   ]
 
   avatarPhoto(document.querySelector('#js-avatar'), profile.photo)

@@ -47,6 +47,24 @@ Deno.serve(async (req) => {
   if (bidError || !bid) return json({ error: 'Bid not found' }, 404)
   if (bid.status !== 'pending') return json({ error: `Bid is ${bid.status}` }, 409)
 
+  // Per-spot starting bids — mirrors minBid in brandSlotDefs (1-2 chest $100,
+  // 3-5 arms $50, 6-7 back $100, 8 lower back $120). Unknown spots fall back
+  // to the global $50 floor.
+  const SPOT_MINIMUMS_CENTS: Record<string, number> = {
+    Chest_Left: 10000,
+    Chest_Right: 10000,
+    UpperArm_Left: 5000,
+    UpperArm_Right: 5000,
+    Forearm_Right: 5000,
+    Back_Left: 10000,
+    Back_Right: 10000,
+    Back_Waist: 12000,
+  }
+  const spotFloor = SPOT_MINIMUMS_CENTS[bid.spot_id] ?? 5000
+  if (bid.amount_cents < spotFloor) {
+    return json({ error: `Minimum bid for this spot is $${spotFloor / 100}` }, 409)
+  }
+
   // Server-side auction guard: the bid must still beat every paid bid.
   const { data: top } = await admin
     .from('bids')

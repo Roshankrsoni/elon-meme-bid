@@ -10,6 +10,8 @@ import { loadAvatar } from './scene/model.js'
 import { BrandSlots } from './scene/brandSlots.js'
 import { initHud } from './ui/hud.js'
 import { initSponsors } from './ui/panel.js'
+import { replaceBrands } from './ui/patches.js'
+import { fetchBrands, loadBrandImage } from './lib/bidding.js'
 import { settlePaymentReturn, showToast } from './lib/bidding.js'
 import { camera as cameraConfig, orbit } from './config.js'
 
@@ -377,6 +379,10 @@ async function boot() {
 
   setProgress(0.02, 'Loading the body…')
 
+  // Brand catalogue loads alongside the scan so the spots build against the
+  // database rows when the backend is on (baked-in rows otherwise).
+  const catalog = fetchBrands().catch(() => null)
+
   try {
     avatar = await loadAvatar({
       onProgress: (fraction) => setProgress(0.02 + fraction * 0.82),
@@ -404,6 +410,23 @@ async function boot() {
   await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30)))
 
   // Projects every zone onto the body (setAvatar also builds the markers).
+  const rows = await catalog
+  if (rows?.length) {
+    replaceBrands(rows)
+    // Buyer logos must be loaded before the markers build their textures —
+    // an unloaded image falls back to the procedural glyph.
+    await Promise.all(
+      rows
+        .filter((row) => row.logoUrl)
+        .map(async (row) => {
+          try {
+            row.image = await loadBrandImage(row.logoUrl)
+          } catch {
+            // Missing logo: the glyph fallback stands in.
+          }
+        }),
+    )
+  }
   studio.setAvatar(avatar)
 
   // Returning from Dodo checkout with ?bid=<id>: confirm payment and print

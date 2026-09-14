@@ -22,6 +22,9 @@ export function showToast(message, ms = 4200) {
 
 /* -------------------------------------------------------------- validation */
 
+export const MIN_BID_USD = 50
+export const MIN_BID_CENTS = MIN_BID_USD * 100
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const MAX_LOGO_BYTES = 5 * 1024 * 1024
 
@@ -82,6 +85,25 @@ export async function getTopPaidBid(spotId) {
     .limit(1)
   if (error || !data?.length) return null
   return { amount: data[0].amount_cents / 100, brandName: data[0].brand_name }
+}
+
+/**
+ * Live leaderboard rows (top paid bid per spot, richest first), shaped for
+ * the HUD ticker. Null when the backend is off or nothing is paid yet —
+ * callers fall back to the static board.
+ */
+export async function fetchLiveLeaderboard(limit = 8) {
+  if (!isBackendConfigured() || !supabase) return null
+  const { data, error } = await supabase
+    .from('leaderboard')
+    .select('spot_label, brand_name, amount_cents')
+    .order('amount_cents', { ascending: false })
+    .limit(limit)
+  if (error || !data?.length) return null
+  return data.map((row) => ({
+    flag: '★',
+    name: `${row.brand_name} · ${row.spot_label} · $${Math.round(row.amount_cents / 100).toLocaleString('en-US')}`,
+  }))
 }
 
 /** Asks the edge function for a fresh Dodo checkout URL, then leaves for it. */
@@ -192,4 +214,93 @@ export async function settlePaymentReturn(studio) {
   }
 
   return bid
+}
+
+/* ------------------------------------------------------------------ catalog */
+
+/**
+ * Brand catalogue from the database, shaped exactly like the baked-in rows
+ * (display strings for amount/views) so the renderer needs no changes.
+ * Null when the backend is off — callers keep the baked-in catalogue.
+ */
+export async function fetchBrands() {
+  if (!isBackendConfigured() || !supabase) return null
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id, label, mark, fill, seed, band, handle, blurb, url, amount_cents, views, logo_url, contact_email')
+    .order('label')
+  if (error || !data?.length) return null
+  return data.map((row) => ({
+    id: row.id,
+    label: row.label,
+    mark: row.mark,
+    fill: row.fill,
+    seed: row.seed,
+    band: row.band ?? [],
+    handle: row.handle,
+    blurb: row.blurb,
+    url: row.url,
+    amount: `$${Math.round(row.amount_cents / 100).toLocaleString('en-US')}`,
+    views: Number(row.views).toLocaleString('en-US'),
+    logoUrl: row.logo_url || null,
+    contactEmail: row.contact_email || null,
+  }))
+}
+
+/** Ticker countries from the database. Null → callers keep the static list. */
+export async function fetchTickerCountries() {
+  if (!isBackendConfigured() || !supabase) return null
+  const { data, error } = await supabase
+    .from('ticker_countries')
+    .select('flag, name')
+    .order('position')
+  if (error || !data?.length) return null
+  return data
+}
+
+/* ------------------------------------------------------------ spot clicks */
+
+/**
+ * Records one tap on a placed brand. Fire-and-forget — a counter must never
+ * break the bid dialog. No-ops without the backend.
+ */
+export function recordSpotClick(spotId) {
+  if (!isBackendConfigured() || !supabase) return
+  supabase.rpc('record_spot_click', { p_spot_id: spotId }).then(
+    () => {},
+    () => {},
+  )
+}
+
+/** Total clicks per spot across all visitors. Empty map when unavailable. */
+export async function fetchSpotClicks() {
+  const counts = new Map()
+  if (!isBackendConfigured() || !supabase) return counts
+  const { data, error } = await supabase.from('spot_clicks').select('spot_id, clicks')
+  if (error || !data) return counts
+  for (const row of data) counts.set(row.spot_id, Number(row.clicks) || 0)
+  return counts
+}
+
+const LOCAL_CLICKS_KEY = 'smb-spot-clicks'
+
+/** This visitor's own per-spot taps, kept in localStorage. */
+export function getLocalSpotClicks() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_CLICKS_KEY) ?? '{}') ?? {}
+  } catch {
+    return {}
+  }
+}
+
+/** Bumps this visitor's tap count for a spot. Returns the new total. */
+export function bumpLocalSpotClick(spotId) {
+  const counts = getLocalSpotClicks()
+  counts[spotId] = (Number(counts[spotId]) || 0) + 1
+  try {
+    localStorage.setItem(LOCAL_CLICKS_KEY, JSON.stringify(counts))
+  } catch {
+    // Private mode etc. — the global counter still records the tap.
+  }
+  return counts[spotId]
 }

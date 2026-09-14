@@ -162,9 +162,10 @@ one-time Dodo product at the exact bid amount and returns a hosted checkout
 URL → Dodo redirects back to `/?bid=<id>` → the `dodo-webhook` marks the bid
 `paid` → the client prints the winner's logo on the body (top paid bid wins).
 
-1. **Supabase project** — create one, then run
-   `supabase/migrations/0001_bids.sql` in the SQL editor (bids table, RLS,
-   `brand-logos` bucket).
+1. **Supabase project** — create one, then run the migrations in order in
+   the SQL editor: `supabase/migrations/0001_bids.sql` (bids table, RLS,
+   `brand-logos` bucket), `0002_leaderboard.sql` (leaderboard view),
+   `0003_catalog.sql` (brands + ticker countries seed data).
 2. **Edge functions** — dashboard → Edge Functions → New function, paste
    `supabase/functions/create-checkout/index.ts` and
    `supabase/functions/dodo-webhook/index.ts`. Secrets for both:
@@ -178,7 +179,10 @@ URL → Dodo redirects back to `/?bid=<id>` → the `dodo-webhook` marks the bid
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Test mode first:
    Dodo test cards, `DODO_ENV=test`.
 5. Amounts are USD cents; every checkout creates one throwaway Dodo product
-   per bid (auction prices can't come from a fixed catalogue).
+   per bid (auction prices can't come from a fixed catalogue). Starting bids
+   are per spot — chest 1–2 and back 6–7 open at $100, arms 3–5 at $50, the
+   lower-back banner 8 at $120 (`minBid` in `brandSlotDefs`, mirrored in
+   `create-checkout`, backstopped by migration `0007` at the $50 global floor).
 
 ## Not built yet
 

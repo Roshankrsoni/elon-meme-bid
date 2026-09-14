@@ -32,16 +32,9 @@ export function patchAspect(shape) {
   return SHAPES[shape] ?? SHAPES.square
 }
 
+/** Baked-in catalogue = offline fallback. `replaceBrands` swaps in the DB rows. */
 export const BRANDS = [
   { id: 'volt', label: 'Volt', mark: 'glyph', fill: LIME, seed: 23, band: ['VOLT V3', 'VOLT'], handle: '@volt', blurb: 'Every AI video and image model', url: 'volt.run', amount: '$8,000', views: '32,269' },
-  { id: 'higgs', label: 'Higsfield', mark: 'code', fill: LIME, seed: 31, band: ['GPT-6 ASTRA', 'HIGSFIELD'], handle: '@higsfield', blurb: 'Generative video for athletes and brands', url: 'higsfield.ai', amount: '$11,400', views: '41,882' },
-  { id: 'apex', label: 'Apex 20', mark: 'glyph', fill: ORANGE, seed: 37, band: ['Zero', 'Rank'], handle: '@apex20', blurb: 'Performance nutrition, nothing else', url: 'apex20.com', amount: '$6,250', views: '18,904' },
-  { id: 'hypr', label: 'Hypr', mark: 'code', fill: LIME, seed: 41, band: ['HYPR X1', 'HYPR'], handle: '@hypr', blurb: 'Recovery tools built for race day', url: 'hypr.fit', amount: '$5,100', views: '14,337' },
-  { id: 'nova', label: 'Nova', mark: 'glyph', fill: LIME, seed: 53, band: ['NOVA 2.5', 'NOVA'], handle: '@novalabs', blurb: 'Sleep and recovery tracking', url: 'novalabs.io', amount: '$9,750', views: '27,615' },
-  { id: 'pulse', label: 'Pulse', mark: 'glyph', fill: LIME, seed: 67, band: ['PULSE KIT', 'PULSE'], handle: '@pulse', blurb: 'Heart-rate kit for endurance sport', url: 'pulse.run', amount: '$7,300', views: '22,048' },
-  { id: 'kinet', label: 'Kinet', mark: 'code', fill: LIME, seed: 71, band: ['KINET 01', 'KINET'], handle: '@kinet', blurb: 'Carbon plates, made in Kenya', url: 'kinet.cc', amount: '$12,900', views: '38,410' },
-  { id: 'orbit', label: 'Orbit', mark: 'glyph', fill: LIME, seed: 89, band: ['ORBIT WEAR', 'ORBIT'], handle: '@orbitwear', blurb: 'Technical kit for hybrid racing', url: 'orbitwear.com', amount: '$4,600', views: '11,762' },
-  { id: 'flux', label: 'Flux', mark: 'code', fill: LIME, seed: 97, band: ['SEEDREAM 5 PRO', 'FLUX'], handle: '@fluxenergy', blurb: 'Electrolytes without the sugar', url: 'flux.energy', amount: '$5,900', views: '16,205' },
 ]
 
 /**
@@ -51,12 +44,22 @@ export const BRANDS = [
 export const SLOT = {
   id: 'slot', label: 'Your logo', mark: 'empty', fill: LIME, seed: 11,
   band: ['YOUR BRAND', 'YOUR BRAND'], handle: '@yourbrand', url: 'sponsormybody.com',
-  amount: '$1,000', views: '0', blurb: 'This spot is open — claim it with your logo.',
+  amount: '$50', views: '0', blurb: 'This spot is open — claim it with your logo.',
 }
 
 export function findBrand(id) {
   if (id === SLOT.id) return SLOT
   return BRANDS.find((brand) => brand.id === id) ?? null
+}
+
+/**
+ * Swaps the baked-in catalogue for the database rows (same shape). In place,
+ * so every existing `BRANDS` / `findBrand` reference keeps working.
+ */
+export function replaceBrands(rows) {
+  BRANDS.length = 0
+  BRANDS.push(...rows)
+  clearLogoCache()
 }
 
 /* ------------------------------------------------------------ helpers ---- */
@@ -452,8 +455,20 @@ export function patchDataUrl(brand, size = 256, shape = 'square', index = null) 
 /**
  * The square brand tile on the sponsor card: the same sticker language, so the
  * card and the body read as one system.
+ *
+ * Data-URL encodes are cached — the sponsors list stamps one per row on every
+ * open, and re-encoding PNGs on the main thread is what made that janky.
  */
+const logoCache = new Map()
+
+export function clearLogoCache() {
+  logoCache.clear()
+}
+
 export function logoDataUrl(brand, size = 256) {
+  const key = `${brand.id}:${size}:${brand.image?.naturalWidth > 0 ? 'img' : 'art'}`
+  const cached = logoCache.get(key)
+  if (cached) return cached
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -510,5 +525,7 @@ export function logoDataUrl(brand, size = 256) {
   }
   ctx.restore()
 
-  return canvas.toDataURL('image/png')
+  const url = canvas.toDataURL('image/png')
+  logoCache.set(key, url)
+  return url
 }

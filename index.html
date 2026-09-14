@@ -172,54 +172,59 @@
             <span class="bidrow__value" id="bid-current">$8,000</span>
           </div>
           <p class="bidmodal__note" id="bid-note"></p>
-
-          <button type="button" class="bidtake" id="js-bidtake">
-            <span class="bidtake__label">Continue to payment</span>
-            <span class="bidtake__price" id="bid-take">$8,001</span>
-          </button>
-          <p class="bidmodal__hint">Outbids the standing price by $1. You pay securely — the spot updates once payment succeeds.</p>
+          <p class="bidmodal__clicks" id="js-bidclicks" hidden></p>
 
           <div class="bidbrand">
             <p class="bidbrand__title">Your brand on this spot</p>
+            <p class="bidbrand__legend"><i class="req">*</i> required</p>
             <p class="bidbrand__size" id="js-bidsize"></p>
             <label class="bidfield">
-              <span>Brand name</span>
+              <span>Brand name <i class="req">*</i></span>
               <input type="text" id="js-bidname" maxlength="24" placeholder="Your brand" autocomplete="off" />
             </label>
             <label class="bidfield">
-              <span>Email for the receipt</span>
+              <span>Email for the receipt <i class="req">*</i></span>
               <input type="email" id="js-bidemail" placeholder="you@brand.com" autocomplete="email" />
             </label>
             <label class="bidfield">
-              <span>Product URL</span>
+              <span>Product URL <i class="req">*</i></span>
               <input type="url" id="js-bidurl" inputmode="url" placeholder="https://yourbrand.com/product" autocomplete="off" />
             </label>
             <label class="bidfile" id="js-bidfilelabel">
               <input type="file" id="js-bidimage" accept="image/*" hidden />
               <img class="bidfile__preview" id="js-bidpreview" alt="" hidden />
               <span class="bidfile__text">
-                <span class="bidfile__title" id="js-bidfiletitle">Upload brand image</span>
+                <span class="bidfile__title" id="js-bidfiletitle">Upload brand image <i class="req">*</i></span>
                 <span class="bidfile__hint" id="js-bidfit">PNG or JPG · printed as the sticker</span>
               </span>
             </label>
             <p class="bidcustom__error" id="js-bidderror" role="alert" hidden></p>
           </div>
 
-          <div class="bidcustom">
-            <label for="js-bidamount">Or name your price</label>
-            <div class="bidcustom__row">
-              <span class="bidcustom__prefix">$</span>
-              <input
-                type="text"
-                id="js-bidamount"
-                inputmode="numeric"
-                placeholder="12,000"
-                autocomplete="off"
-                aria-describedby="js-biderror"
-              />
-              <button type="button" class="bidcustom__submit" id="js-bidsubmit">Place bid</button>
+          <div class="bidamount">
+            <p class="bidbrand__title">Your bid <span class="minpill" id="js-bidmin">Min $20</span></p>
+            <button type="button" class="bidtake" id="js-bidtake">
+              <span class="bidtake__label">Continue to payment</span>
+              <span class="bidtake__price" id="bid-take">$8,001</span>
+            </button>
+            <p class="bidmodal__hint" id="js-bidhint">Outbids the standing price by $1. You pay securely — the spot updates once payment succeeds.</p>
+
+            <div class="bidcustom">
+              <label for="js-bidamount">Or name your price</label>
+              <div class="bidcustom__row">
+                <span class="bidcustom__prefix">$</span>
+                <input
+                  type="text"
+                  id="js-bidamount"
+                  inputmode="numeric"
+                  placeholder="12,000"
+                  autocomplete="off"
+                  aria-describedby="js-biderror"
+                />
+                <button type="button" class="bidcustom__submit" id="js-bidsubmit">Place bid</button>
+              </div>
+              <p class="bidcustom__error" id="js-biderror" role="alert" hidden></p>
             </div>
-            <p class="bidcustom__error" id="js-biderror" role="alert" hidden></p>
           </div>
 
           <button type="button" class="bidremove" id="js-bidremove" hidden>

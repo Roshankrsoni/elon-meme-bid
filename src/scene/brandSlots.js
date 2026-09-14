@@ -198,6 +198,7 @@ export function brandSlotDefs(a) {
       frac: chestFrac,
       shape: 'square',
       sizeCm: 13,
+      minBid: 100,
       /*
        * The chest is lopsided: the figure's own right pectoral turns away
        * faster, so a little less of the square can land on skin there.
@@ -208,7 +209,7 @@ export function brandSlotDefs(a) {
       scan: 0.022,
       // No vertical sweep: slots 1 and 2 stay at exactly chestFrac, level.
       scanAlong: 0,
-      brandId: side > 0 ? 'higgs' : 'volt',
+      brandId: side > 0 ? 'higgs' : 'x',
       anchor: () => a.toPoint(spine - chestShift + chestLat * side, chestFrac, 0),
       facing: facingFront,
     })),
@@ -228,6 +229,7 @@ export function brandSlotDefs(a) {
       frac: upperArmFrac,
       shape: 'band',
       sizeCm: 4.8,
+      minBid: 50,
       tight: true,
       minLat: limbGuard(side, upperArmFrac),
       outerBias: LIMB_BIAS,
@@ -248,6 +250,7 @@ export function brandSlotDefs(a) {
       frac: forearmFrac,
       shape: 'band',
       sizeCm: 4,
+      minBid: 50,
       tight: true,
       minLat: limbGuard(-1, forearmFrac),
       outerBias: LIMB_BIAS,
@@ -268,12 +271,14 @@ export function brandSlotDefs(a) {
       frac: backFrac,
       shape: 'square',
       sizeCm: 14,
+      minBid: 100,
       minFit: 0.88,
       scan: 0.018,
       // No vertical sweep: both scapula squares stay at exactly backFrac, so
       // slots 9 and 10 sit level with each other.
       scanAlong: 0,
-      brandId: side > 0 ? 'orbit' : 'volt',
+      // Right back intentionally unclaimed — 'slot' resolves to the placeholder.
+      brandId: side > 0 ? 'orbit' : 'slot',
       anchor: () => a.toPoint(spine + backShift + backLat * side + backTuck(side), backFrac, 0),
       facing: facingBack,
     })),
@@ -290,6 +295,7 @@ export function brandSlotDefs(a) {
       frac: waistFrac,
       shape: 'wide',
       sizeCm: 16.5,
+      minBid: 120,
       minFit: 0.85,
       scan: 0.03,
       brandId: 'pulse',
@@ -533,7 +539,10 @@ export class BrandSlots {
     // Opening a spot also offers its brand, so the bid can be raised or the
     // spot given up without leaving the body.
     const item = this.items.get(id)
-    if (item) this.onOpenBid?.(item.brand, item)
+    if (!item) return
+    // Count taps on placed brands only — open placeholders don't count.
+    if (item.brand.mark !== 'empty') this.onSpotClick?.(item)
+    this.onOpenBid?.(item.brand, item)
   }
 
   /* ------------------------------------------------------------ surface -- */
