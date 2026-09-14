@@ -113,7 +113,7 @@ function organicRoundRect(ctx, x, y, w, h, radius, random, jitter = 0.06) {
 }
 
 /**
- * The white die-cut dashes that ring every sticker. They sit close to the
+ * The white die-cut dashes that ring an open spot. They sit close to the
  * silhouette and stay thin: in the reference this ring reads as a hairline, not
  * as a second border.
  */

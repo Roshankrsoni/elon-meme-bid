@@ -542,8 +542,11 @@ svg {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(31, 214, 240, 0.75);
+  box-shadow:
+    0 0 0 3px rgba(31, 214, 240, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(31, 214, 240, 0.28);
   flex: none;
 }
 
@@ -834,7 +837,7 @@ svg {
   .ticker { max-width: 200px; }
   .ticker li:nth-child(n + 5) { display: none; }
 
-  .cta { padding: 11px 22px; font-size: 12.5px; }
+  .cta { padding: 9px 18px; font-size: 11.5px; }
 
   /* Sponsors modal stays centred on phones. */
   .sponsors {
@@ -855,6 +858,10 @@ svg {
 @media (max-width: 560px) {
   .hud__block--tl .iconrow { margin-top: 11px; }
   .hud__block--br .profile { display: none; }
+  /* Lone circle: even pill padding and a slightly larger ring since it
+     carries the whole profile card on its own. */
+  .hud__block--br { padding: 5px; }
+  .hud__block--br .avatar { width: 46px; height: 46px; }
   .ticker { max-width: 150px; }
   .ticker li:nth-child(n + 3) { display: none; }
 }

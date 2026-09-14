@@ -155,7 +155,12 @@ export function initHud({ onResetCamera, onToggleSponsors }) {
     ...initTicker(document.querySelector('#js-ticker')),
   ]
 
-  avatarPhoto(document.querySelector('#js-avatar'), profile.photo)
+  // Crisp on 3x phone screens: paint the photo above display size and let
+  // CSS shrink it (40px desktop, 46px mobile).
+  const avatarCanvas = document.querySelector('#js-avatar')
+  const avatarDpr = Math.min(window.devicePixelRatio || 1, 3)
+  avatarCanvas.width = avatarCanvas.height = Math.round(48 * avatarDpr)
+  avatarPhoto(avatarCanvas, profile.photo)
 
   document.querySelector('#js-full').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen()

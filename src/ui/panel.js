@@ -76,16 +76,26 @@ export function initSponsors({ studio }) {
 
   const sponsorsOpen = () => !sponsorsModal.hidden && sponsorsModal.classList.contains('is-open')
 
+  /**
+   * Unhides a dialog and starts its enter transition synchronously. The old
+   * double-rAF waited two frames while the card sat at opacity 0 — on a phone
+   * GPU in the middle of the camera fly-to those frames arrive late and the
+   * tap feels dead. A forced reflow separates the unhidden style from the
+   * transition start without waiting on the frame clock.
+   */
+  const showModal = (modal) => {
+    modal.hidden = false
+    void modal.offsetHeight
+    modal.classList.add('is-open')
+  }
+
   function openSponsors() {
     renderSponsors()
     if (!sponsorsModal.hidden) {
       sponsorsModal.classList.add('is-open')
       return
     }
-    sponsorsModal.hidden = false
-    // Two frames: unhide paints first, the transition starts on the next one.
-    // A single rAF can fire before first paint and swallow the animation.
-    requestAnimationFrame(() => requestAnimationFrame(() => sponsorsModal.classList.add('is-open')))
+    showModal(sponsorsModal)
     document.body.classList.add('is-modal')
     sponsorsClose.focus({ preventScroll: true })
   }
@@ -405,7 +415,17 @@ export function initSponsors({ studio }) {
     bidFloor = startBid
     const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
 
-    bidLogo.src = logoDataUrl(brand, 128)
+    // Heavy part: drawing a multi-megapixel upload into the tile blocks first
+    // paint on phones, so it lands after the dialog is visible (and is cached
+    // after the first open, like the sponsors rows).
+    if (brand.image?.naturalWidth > 0) {
+      bidLogo.removeAttribute('src')
+      requestAnimationFrame(() => {
+        if (bidBrand === brand && !bidModal.hidden) bidLogo.src = logoDataUrl(brand, 128)
+      })
+    } else {
+      bidLogo.src = logoDataUrl(brand, 128)
+    }
     bidLogo.alt = open ? '' : `${brand.label} logo`
     bidTitle.textContent = open ? 'This spot is open' : brand.label
     bidHandle.textContent = open ? 'Be the first bid' : brand.handle
@@ -446,9 +466,7 @@ export function initSponsors({ studio }) {
     renderBidClicks(spot, brand)
     renderFitNote(null)
 
-    bidModal.hidden = false
-    // Two frames: unhide paints first, the transition starts on the next one.
-    requestAnimationFrame(() => requestAnimationFrame(() => bidModal.classList.add('is-open')))
+    showModal(bidModal)
     document.body.classList.add('is-modal')
     // Focus the primary action, not the text field — focusing the field pops
     // the keyboard over the button on phones.
