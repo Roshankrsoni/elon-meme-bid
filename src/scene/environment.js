@@ -309,7 +309,7 @@ function buildWallFrames() {
  * views, and a mirrored copy hangs on the +X wall for right-shoulder views
  * (orbit to either side / open a deltoid spot) — like the neon-screen reference.
  *
- * Drop the artwork in as `public/wall-photo.png` (served at `/wall-photo.png`).
+ * Drop the artwork in as `public/wall-photo.jpeg` (served at `/wall-photo.jpeg`).
  * Any portrait PNG/JPG works — transparency is preserved. If the file is
  * missing, a dark placeholder panel shows instead so the frame still reads.
  * A frame may also carry `credit: { text, url }`, drawn as a tappable plaque
@@ -321,7 +321,7 @@ export const WALL_PHOTO = {
   framePad: 0.08,
   chamfer: 0.1,
   frames: [
-    { position: [-3.1, 1.32, -1.9], url: '/wall-photo.png' },
+    { position: [-3.1, 1.32, -1.9], url: '/wall-photo.jpeg' },
     {
       position: [3.1, 1.32, -1.9],
       url: '/wall-photo-2.jpg',
@@ -347,7 +347,7 @@ function placeholderPhotoTexture() {
   ctx.font = "500 30px 'JetBrains Mono', monospace"
   ctx.textAlign = 'center'
   ctx.fillText('Add', canvas.width / 2, canvas.height / 2 - 24)
-  ctx.fillText('public/wall-photo.png', canvas.width / 2, canvas.height / 2 + 16)
+  ctx.fillText('public/wall-photo.jpeg', canvas.width / 2, canvas.height / 2 + 16)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   return texture
