@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { inject } from '@vercel/analytics'
 
 import { buildEnvironment } from './scene/environment.js'
 import { loadAvatar } from './scene/model.js'
@@ -14,6 +15,9 @@ import { replaceBrands } from './ui/patches.js'
 import { fetchBrands, loadBrandImage } from './lib/bidding.js'
 import { paintAllPaidBids, settlePaymentReturn, showToast } from './lib/bidding.js'
 import { camera as cameraConfig, orbit } from './config.js'
+
+// Initialize Vercel Analytics
+inject()
 
 const canvas = document.querySelector('#scene')
 const loader = document.querySelector('#js-loader')
