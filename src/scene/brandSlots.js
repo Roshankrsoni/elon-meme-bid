@@ -374,7 +374,7 @@ export class BrandSlots {
       new THREE.MeshBasicMaterial({
         color: 0x3fe9ff,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.35,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -905,6 +905,10 @@ export class BrandSlots {
     this.outline.visible = !!open
     if (!open) return
 
+    // Placeholders are mostly transparent, so the solid quad behind would
+    // wash out the skin — keep it fainter there than on filled stickers,
+    // where only a thin ring peeks out.
+    this.outline.material.opacity = open.brand?.mark === 'empty' ? 0.22 : 0.35
     this.outline.geometry = open.mesh.geometry
     this.outline.position.copy(open.mesh.position)
     this.outline.quaternion.copy(open.mesh.quaternion)

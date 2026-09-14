@@ -130,6 +130,35 @@ function dieCut(ctx, x, y, w, h, radius, random) {
 }
 
 /**
+ * Thin die-cut for claimed spots: same dashed language, but a true hairline
+ * hugging the silhouette instead of a second border.
+ */
+function dieCutThin(ctx, x, y, w, h, radius, random) {
+  const unit = Math.min(w, h)
+  const gap = Math.max(2, unit * 0.008)
+  ctx.save()
+  ctx.setLineDash([unit * 0.04, unit * 0.03])
+  ctx.lineWidth = Math.max(2, unit * 0.008)
+  ctx.strokeStyle = DIE_CUT
+  organicRoundRect(ctx, x - gap, y - gap, w + gap * 2, h + gap * 2, radius + gap, random, 0.04)
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * Hairline edge for uploaded logos: no white surround, just a thin solid
+ * ring on the sticker silhouette so the logo reads on skin.
+ */
+function hairline(ctx, stickerPath, edge) {
+  ctx.save()
+  ctx.setLineDash([])
+  ctx.lineWidth = Math.max(2, edge * 0.006)
+  ctx.strokeStyle = DIE_CUT
+  ctx.stroke(stickerPath)
+  ctx.restore()
+}
+
+/**
  * The hand-drawn mark, traced into a 100×100 box: a hook at the top left, a
  * diagonal down to the lower left, a turn up into a large closed loop, and a
  * tail leaving to the right at mid-height.
@@ -331,6 +360,7 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
 
   const random = mulberry32(brand.seed)
   const isEmpty = brand.mark === 'empty'
+  const hasImage = brand.image?.naturalWidth > 0
   const fill = brand.fill ?? LIME
   const ink = inkOn(fill)
   // Empty spots sit background-free on the skin, so their graphics use white
@@ -343,7 +373,14 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
   const box = { x: inset, y: inset, w: w - inset * 2, h: h - inset * 2 }
   const radius = edge * (shape === 'band' ? 0.11 : shape === 'wide' ? 0.16 : 0.2)
 
-  dieCut(ctx, box.x, box.y, box.w, box.h, radius, random)
+  // Open spots keep the full dashed ring so they read on skin. Claimed spots
+  // drop the thick white border: procedural stickers get a thin hairline,
+  // uploaded logos get no surround at all — just a thin edge.
+  if (isEmpty) {
+    dieCut(ctx, box.x, box.y, box.w, box.h, radius, random)
+  } else if (!hasImage) {
+    dieCutThin(ctx, box.x, box.y, box.w, box.h, radius, random)
+  }
 
   // One path, drawn once and reused as the clip — two separate calls would
   // consume different random values and the clip would cut into the artwork.
@@ -352,7 +389,7 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
 
   // Empty spots stay background-free on the body: only the dashed ring, the
   // inner rule and the "+" remain, so the skin shows through.
-  if (!isEmpty) {
+  if (!isEmpty && !hasImage) {
     ctx.fillStyle = fill
     ctx.fill(stickerPath)
   }
@@ -364,11 +401,10 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
   ctx.save()
   ctx.clip(stickerPath)
 
-  if (brand.image?.naturalWidth > 0) {
-    // A buyer's uploaded logo: light stock base, logo printed contain-fit.
-    ctx.fillStyle = '#edf2f5'
-    ctx.fill(stickerPath)
-    drawBrandImage(ctx, brand.image, box)
+  if (hasImage) {
+    // A buyer's uploaded logo sits straight on the skin — no white stock
+    // base — contain-fit with only a thin transparent margin to the edge.
+    drawBrandImage(ctx, brand.image, box, 0.04)
   } else if (isEmpty) {
     // A dashed inner rule plus a bold "+": the universal "claim me" slot.
     ctx.save()
@@ -424,9 +460,17 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
     drawGlyph(ctx, cx, cy, short * 0.56, ink)
   }
 
-  if (!isEmpty) drawSlotNumber(ctx, w, h, inset, box, index, ink)
+  if (hasImage) {
+    // Outlined so the number reads on any logo and on skin.
+    drawSlotNumber(ctx, w, h, inset, box, index, placeholderInk, 0.95, INK)
+  } else if (!isEmpty) {
+    drawSlotNumber(ctx, w, h, inset, box, index, ink)
+  }
 
   ctx.restore()
+
+  // Uploaded logos keep only this thin edge — no white surround.
+  if (hasImage) hairline(ctx, stickerPath, edge)
 
   return canvas
 }
@@ -435,7 +479,8 @@ export function createPatchCanvas(brand, { size = 512, shape = 'square', index =
 const textureCache = new Map()
 
 export function patchTexture(brand, shape = 'square', index = null) {
-  const key = `${brand.id}:${shape}:${index ?? ''}`
+  const hasImage = brand.image?.naturalWidth > 0
+  const key = `${brand.id}:${shape}:${index ?? ''}:${hasImage ? 'img' : 'art'}:${brand.logoUrl ?? ''}:${brand.seed ?? ''}`
   const cached = textureCache.get(key)
   if (cached) return cached
 
@@ -463,6 +508,7 @@ const logoCache = new Map()
 
 export function clearLogoCache() {
   logoCache.clear()
+  textureCache.clear()
 }
 
 export function logoDataUrl(brand, size = 256) {
@@ -476,20 +522,26 @@ export function logoDataUrl(brand, size = 256) {
 
   const random = mulberry32(brand.seed)
   const hasImage = brand.image?.naturalWidth > 0
+  const isEmpty = !hasImage && brand.mark === 'empty'
   const fill = hasImage ? '#edf2f5' : (brand.fill ?? LIME)
   const ink = inkOn(fill)
+  // Empty spots stay transparent (no yellow fill) so the row shows just the
+  // dashed rule and the "+" — light artwork to read on the dark modal.
+  const emptyInk = PAPER
 
-  ctx.fillStyle = fill
-  ctx.beginPath()
-  ctx.roundRect(0, 0, size, size, size * 0.24)
-  ctx.fill()
+  if (!isEmpty) {
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    ctx.roundRect(0, 0, size, size, size * 0.24)
+    ctx.fill()
+  }
 
   if (hasImage) {
     drawBrandImage(ctx, brand.image, { x: 0, y: 0, w: size, h: size }, 0.16)
-  } else if (brand.mark === 'empty') {
+  } else if (isEmpty) {
     ctx.save()
     ctx.setLineDash([size * 0.04, size * 0.035])
-    ctx.strokeStyle = ink
+    ctx.strokeStyle = emptyInk
     ctx.globalAlpha = 0.5
     ctx.lineWidth = size * 0.022
     ctx.beginPath()
@@ -499,7 +551,7 @@ export function logoDataUrl(brand, size = 256) {
 
     const arm = size * 0.3
     const thick = size * 0.085
-    ctx.fillStyle = ink
+    ctx.fillStyle = emptyInk
     ctx.globalAlpha = 0.82
     ctx.beginPath()
     ctx.roundRect(size / 2 - arm / 2, size / 2 - thick / 2, arm, thick, thick * 0.35)
@@ -514,16 +566,19 @@ export function logoDataUrl(brand, size = 256) {
     drawGlyph(ctx, size / 2, size / 2, size * 0.6, ink)
   }
 
-  // A little scuff so the tile is not a flat vector fill.
-  ctx.save()
-  ctx.beginPath()
-  ctx.roundRect(0, 0, size, size, size * 0.24)
-  ctx.clip()
-  for (let i = 0; i < 90; i += 1) {
-    ctx.fillStyle = random() > 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.045)'
-    ctx.fillRect(random() * size, random() * size, 1 + random() * 3, 1 + random() * 3)
+  // A little scuff so the tile is not a flat vector fill (skipped on
+  // empty spots — the tile is transparent there).
+  if (!isEmpty) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.roundRect(0, 0, size, size, size * 0.24)
+    ctx.clip()
+    for (let i = 0; i < 90; i += 1) {
+      ctx.fillStyle = random() > 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.045)'
+      ctx.fillRect(random() * size, random() * size, 1 + random() * 3, 1 + random() * 3)
+    }
+    ctx.restore()
   }
-  ctx.restore()
 
   const url = canvas.toDataURL('image/png')
   logoCache.set(key, url)

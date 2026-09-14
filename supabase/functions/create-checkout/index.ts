@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
     return json({ error: `Minimum bid for this spot is $${spotFloor / 100}` }, 409)
   }
 
-  // Server-side auction guard: the bid must still beat every paid bid.
+  // Server-side auction guard: the bid must beat every paid bid by at least
+  // the $10 increment.
   const { data: top } = await admin
     .from('bids')
     .select('amount_cents')
@@ -74,7 +75,10 @@ Deno.serve(async (req) => {
     .order('amount_cents', { ascending: false })
     .limit(1)
   const topPaid = top?.[0]?.amount_cents ?? 0
-  if (bid.amount_cents <= topPaid) return json({ error: 'This bid no longer beats the top paid bid' }, 409)
+  const BID_INCREMENT_CENTS = 1000
+  if (bid.amount_cents < topPaid + BID_INCREMENT_CENTS) {
+    return json({ error: 'This bid must beat the top paid bid by at least $10' }, 409)
+  }
 
   const dodo = async (path: string, payload: unknown) => {
     const res = await fetch(`${dodoBase}${path}`, {

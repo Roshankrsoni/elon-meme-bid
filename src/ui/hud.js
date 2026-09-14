@@ -89,7 +89,7 @@ function tickerRow(entry, index) {
 }
 
 function initTicker(root) {
-  // Static countries until paid bids exist — then the live leaderboard.
+  // Countries always stay on the board — paid bids join them, never replace them.
   let board = [...leaderboard]
   let cursor = 0
   let elapsed = 0
@@ -126,23 +126,17 @@ function initTicker(root) {
     refreshTimes()
   }, 1000)
 
-  // Paid bids first, then the DB country list, then the baked-in list —
-  // each step falls back silently to the previous one.
+  // Paid bids lead, then the DB country list, then the baked-in list —
+  // the countries are never swapped out, so paid activity joins the board
+  // instead of hiding it.
   const pullBoard = async () => {
     try {
       const live = await fetchLiveLeaderboard()
-      if (live?.length) {
-        board = live
-        cursor = 0
-        render()
-        return
-      }
       const countries = await fetchTickerCountries()
-      if (countries?.length) {
-        board = countries
-        cursor = 0
-        render()
-      }
+      const base = countries?.length ? countries : [...leaderboard]
+      board = live?.length ? [...live, ...base] : base
+      cursor = 0
+      render()
     } catch {
       // Offline or backend off — the static board keeps ticking.
     }

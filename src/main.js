@@ -12,7 +12,7 @@ import { initHud } from './ui/hud.js'
 import { initSponsors } from './ui/panel.js'
 import { replaceBrands } from './ui/patches.js'
 import { fetchBrands, loadBrandImage } from './lib/bidding.js'
-import { settlePaymentReturn, showToast } from './lib/bidding.js'
+import { paintAllPaidBids, settlePaymentReturn, showToast } from './lib/bidding.js'
 import { camera as cameraConfig, orbit } from './config.js'
 
 const canvas = document.querySelector('#scene')
@@ -429,8 +429,17 @@ async function boot() {
   }
   studio.setAvatar(avatar)
 
+  // Sold spots persist for every visitor: print the top paid bid per spot
+  // before handling the return, so a reload still shows the body correctly.
+  try {
+    await paintAllPaidBids(studio)
+  } catch {
+    // A missing backend must never block the body.
+  }
+
   // Returning from Dodo checkout with ?bid=<id>: confirm payment and print
-  // the winner's logo on the body.
+  // the winner's logo on the body (verify-payment reconciles directly with
+  // Dodo when the webhook is late).
   settlePaymentReturn(studio)
     .then((bid) => {
       if (!bid) return

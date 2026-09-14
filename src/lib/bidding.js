@@ -25,6 +25,10 @@ export function showToast(message, ms = 4200) {
 export const MIN_BID_USD = 50
 export const MIN_BID_CENTS = MIN_BID_USD * 100
 
+/** Minimum raise over the standing paid bid to take a spot. */
+export const BID_INCREMENT_USD = 10
+export const BID_INCREMENT_CENTS = BID_INCREMENT_USD * 100
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const MAX_LOGO_BYTES = 5 * 1024 * 1024
 
@@ -118,16 +122,43 @@ export async function startCheckout(bidId) {
   location.href = data.checkout_url
 }
 
+/** Asks the verify-payment edge function to reconcile one bid against Dodo's API. */
+export async function verifyBidPayment(bidId) {
+  const db = requireBackend()
+  try {
+    const { data, error } = await db.functions.invoke('verify-payment', {
+      body: { bid_id: bidId },
+    })
+    if (error) return null
+    return data?.status ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Polls the bid row until the webhook marks it paid/failed, or gives up. */
 export async function pollBidStatus(bidId, { intervalMs = 2000, timeoutMs = 60000 } = {}) {
   const db = requireBackend()
   const started = Date.now()
+  let verified = false
   for (;;) {
     const { data, error } = await db.from('bids').select('status').eq('id', bidId).single()
     if (!error && data && data.status !== 'pending') return data.status
-    if (Date.now() - started > timeoutMs) return 'unknown'
+    const elapsed = Date.now() - started
+    // Halfway through the wait, ask Dodo directly — the webhook may be late
+    // or misconfigured, and verify-payment can mark the row itself.
+    if (!verified && elapsed > Math.min(10000, timeoutMs / 2)) {
+      verified = true
+      const direct = await verifyBidPayment(bidId)
+      if (direct && direct !== 'pending') return direct
+    }
+    if (elapsed > timeoutMs) break
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
+  // Final fallback: one last direct check before giving up.
+  const direct = await verifyBidPayment(bidId)
+  if (direct && direct !== 'pending') return direct
+  return 'unknown'
 }
 
 /** Loads a remote logo for printing onto the body. */
@@ -143,11 +174,67 @@ export function loadBrandImage(url) {
 
 /* ---------------------------------------------------------- payment return */
 
+/** Top paid bid per spot, richest first — the source of truth for the body. */
+export async function fetchPaidBids() {
+  if (!isBackendConfigured() || !supabase) return []
+  const { data, error } = await supabase
+    .from('bids')
+    .select('*')
+    .eq('status', 'paid')
+    .order('amount_cents', { ascending: false })
+  if (error || !data?.length) return []
+  const seen = new Set()
+  return data.filter((bid) => {
+    if (seen.has(bid.spot_id)) return false
+    seen.add(bid.spot_id)
+    return true
+  })
+}
+
+/** Prints one paid bid onto its spot. False when the spot is missing/unprintable. */
+export async function paintPaidBid(studio, bid) {
+  const item = studio.items.get(bid.spot_id)
+  if (!item) return false
+  try {
+    const image = await loadBrandImage(bid.brand_image_url)
+    studio.assign(bid.spot_id, {
+      id: `bid-${bid.id}`,
+      label: bid.brand_name,
+      style: 'logo',
+      color: '#f2f5f7',
+      seed: 7,
+      monogram: '★',
+      handle: '@you',
+      blurb: bid.product_url,
+      url: String(bid.product_url ?? '').replace(/^https?:\/\//, ''),
+      amount: `$${Number(bid.amount_cents / 100).toLocaleString('en-US')}`,
+      views: '0',
+      image,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Prints every top paid bid onto the body — so all visitors see sold spots,
+ * not just the buyer on return. Safe to call on every boot after setAvatar.
+ */
+export async function paintAllPaidBids(studio) {
+  const bids = await fetchPaidBids()
+  for (const bid of bids) {
+    await paintPaidBid(studio, bid)
+  }
+  return bids
+}
+
 /**
  * Runs once at boot after the spots exist. When Dodo redirects back with
- * `?bid=<id>`, waits for the webhook to confirm payment and — if this bid is
- * still the top paid bid for its spot — prints the buyer's logo on the body.
- * Returns the paid bid row, or null when there is nothing to settle.
+ * `?bid=<id>` (Dodo also appends its own `payment_id`/`status` params),
+ * waits for the webhook — with a direct verify-payment fallback — and, if
+ * this bid is still the top paid bid for its spot, prints the buyer's logo
+ * on the body. Returns the paid bid row, or null when nothing to settle.
  */
 export async function settlePaymentReturn(studio) {
   const params = new URLSearchParams(location.search)
@@ -189,26 +276,8 @@ export async function settlePaymentReturn(studio) {
     return null
   }
 
-  const item = studio.items.get(bid.spot_id)
-  if (!item) return null
-
-  try {
-    const image = await loadBrandImage(bid.brand_image_url)
-    studio.assign(bid.spot_id, {
-      id: `bid-${bid.id}`,
-      label: bid.brand_name,
-      style: 'logo',
-      color: '#f2f5f7',
-      seed: 7,
-      monogram: '★',
-      handle: '@you',
-      blurb: bid.product_url,
-      url: bid.product_url.replace(/^https?:\/\//, ''),
-      amount: `$${Number(bid.amount_cents / 100).toLocaleString('en-US')}`,
-      views: '0',
-      image,
-    })
-  } catch {
+  const painted = await paintPaidBid(studio, bid)
+  if (!painted) {
     showToast('Paid, but the logo could not be printed — contact us.')
     return null
   }

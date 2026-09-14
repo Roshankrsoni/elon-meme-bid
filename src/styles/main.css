@@ -1145,7 +1145,7 @@ svg {
 /* The page behind the modal should not scroll on phones. */
 body.is-modal { overflow: hidden; }
 
-/* ── bid modal: spot line + remove action ─────────────────── */
+/* ── bid modal: spot line ─────────────────────────── */
 
 .bidmodal__spot {
   margin: 0 0 10px;
@@ -1157,27 +1157,6 @@ body.is-modal { overflow: hidden; }
 }
 
 .bidmodal__spot[hidden] { display: none; }
-
-.bidremove {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(240, 110, 160, 0.32);
-  background: rgba(240, 110, 160, 0.08);
-  color: var(--pink);
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.bidremove:hover {
-  background: rgba(240, 110, 160, 0.16);
-  border-color: rgba(240, 110, 160, 0.55);
-}
-
-.bidremove[hidden] { display: none; }
 
 /* ── bid modal: brand details ───────────────────────────── */
 
@@ -1369,6 +1348,4 @@ body.is-modal { overflow: hidden; }
   .bidcustom__row { padding: 5px 5px 5px 15px; }
   .bidcustom__row input { font-size: 16px; }
   .bidcustom__submit { padding: 13px 20px; font-size: 13px; }
-
-  .bidremove { padding: 14px; font-size: 13px; }
 }

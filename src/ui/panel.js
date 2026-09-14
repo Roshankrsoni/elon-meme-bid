@@ -1,5 +1,6 @@
 import { logoDataUrl, patchAspect } from './patches.js'
 import {
+  BID_INCREMENT_USD,
   MIN_BID_USD,
   bumpLocalSpotClick,
   createBid,
@@ -56,7 +57,6 @@ export function initSponsors({ studio }) {
   const bidSubmit = document.querySelector('#js-bidsubmit')
   const bidError = document.querySelector('#js-biderror')
   const bidSpot = document.querySelector('#bid-spot')
-  const bidRemove = document.querySelector('#js-bidremove')
   const bidHint = document.querySelector('#js-bidhint')
   const bidMinPill = document.querySelector('#js-bidmin')
   const bidClicks = document.querySelector('#js-bidclicks')
@@ -217,6 +217,50 @@ export function initSponsors({ studio }) {
   let bidBusy = false
   let previewUrl = null
 
+  // Temporary body preview: the uploaded logo is painted onto the focused
+  // spot while the bid dialog is open, then restored on close (the spot only
+  // changes for real once payment succeeds).
+  let previewSpotId = null
+  let previewOriginalBrand = null
+
+  const clearBodyPreview = () => {
+    if (previewSpotId && previewOriginalBrand) {
+      const item = studio.items.get(previewSpotId)
+      // Only restore when our preview is still the live artwork — a paid
+      // paint landing meanwhile must never be clobbered.
+      if (item && item.brand?.id === `preview-${previewSpotId}`) {
+        studio.assign(previewSpotId, previewOriginalBrand)
+      }
+    }
+    previewSpotId = null
+    previewOriginalBrand = null
+  }
+
+  /** Paints an already-loaded image onto the focused spot as a preview. */
+  const paintBodyPreview = (spot, image) => {
+    const item = studio.items.get(spot.id)
+    if (!item) return
+    if (previewSpotId !== spot.id) {
+      clearBodyPreview()
+      previewSpotId = spot.id
+      previewOriginalBrand = item.brand
+    }
+    studio.assign(spot.id, {
+      id: `preview-${spot.id}`,
+      label: bidName.value.trim() || item.brand?.label || 'Your logo',
+      mark: 'preview',
+      fill: '#edf2f5',
+      seed: item.brand?.seed ?? 7,
+      handle: '@you',
+      blurb: '',
+      url: '',
+      amount: item.brand?.amount ?? '',
+      views: item.brand?.views ?? '0',
+      logoUrl: previewUrl,
+      image,
+    })
+  }
+
   const SHAPE_WORDS = { square: 'square print', band: 'strap', wide: 'wide banner' }
 
   /** Tap counter line in the bid dialog: global total plus your own taps. */
@@ -349,14 +393,15 @@ export function initSponsors({ studio }) {
   }
 
   function openBid(brand, spot = null) {
+    clearBodyPreview()
     bidBrand = brand
     bidSpotItem = spot
     bidBusy = false
 
     const current = parseCount(brand.amount)
     const open = brand.mark === 'empty'
-    // Starting bid: the spot's own floor when open, current + $1 above that.
-    const startBid = open ? (spot?.def?.minBid ?? MIN_BID_USD) : current + 1
+    // Starting bid: the spot's own floor when open, current + $10 above that.
+    const startBid = open ? (spot?.def?.minBid ?? MIN_BID_USD) : current + BID_INCREMENT_USD
     bidFloor = startBid
     const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
 
@@ -369,10 +414,9 @@ export function initSponsors({ studio }) {
     bidMinPill.textContent = `Min ${money(startBid)}`
     bidSpot.textContent = spot ? `Spotted on the ${spot.def.label.toLowerCase()}` : 'Sponsor a spot'
     bidSpot.hidden = !spot
-    bidRemove.hidden = !spot || open
     bidHint.textContent = open
       ? `Minimum bid is $${startBid}. You pay securely — the spot updates once payment succeeds.`
-      : 'Outbids the standing price by $1. You pay securely — the spot updates once payment succeeds.'
+      : `Outbids the standing price by $${BID_INCREMENT_USD}. You pay securely — the spot updates once payment succeeds.`
 
     bidNote.textContent = open
       ? `No sponsor yet. Take it from $${startBid}, or name your own price.`
@@ -418,10 +462,10 @@ export function initSponsors({ studio }) {
           if (!top || bidSpotItem !== spot || bidModal.hidden) return
           const live = Math.max(current, Math.floor(top.amount))
           if (live === current) return
-          bidFloor = live + 1
+          bidFloor = live + BID_INCREMENT_USD
           bidCurrent.textContent = money(live)
-          if (!bidBusy) bidTakePrice.textContent = money(live + 1)
-          bidAmount.placeholder = money(live + 1).slice(1)
+          if (!bidBusy) bidTakePrice.textContent = money(live + BID_INCREMENT_USD)
+          bidAmount.placeholder = money(live + BID_INCREMENT_USD).slice(1)
         })
         .catch(() => {})
     }
@@ -432,6 +476,12 @@ export function initSponsors({ studio }) {
     bidModal.classList.remove('is-open')
     // The sponsors modal shares `is-modal` — keep the page locked while open.
     if (sponsorsModal.hidden) document.body.classList.remove('is-modal')
+    // Drop the temporary logo from the body before forgetting the spot.
+    clearBodyPreview()
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      previewUrl = null
+    }
     bidBrand = null
     bidSpotItem = null
     // Unfocus the spot so the camera flies back out to the full figure.
@@ -472,7 +522,7 @@ export function initSponsors({ studio }) {
       bidError.textContent =
         bidBrand.mark === 'empty'
           ? `Minimum bid is $${bidFloor}.`
-          : `Your bid has to beat the current ${money(bidFloor - 1)}.`
+          : `Your bid has to beat the current ${money(bidFloor - BID_INCREMENT_USD)} by $${BID_INCREMENT_USD}.`
       bidError.hidden = false
       bidAmount.focus()
       return
@@ -489,18 +539,12 @@ export function initSponsors({ studio }) {
     }
   })
 
-  bidRemove.addEventListener('click', () => {
-    const spot = bidSpotItem
-    closeBid()
-    if (spot) {
-      studio.clearZone(spot.id)
-      renderSponsors()
-    }
-  })
-
   // Brand image picker: instant preview plus a fit note for this spot.
+  // The logo is also painted onto the body immediately as a temporary
+  // preview — removed again when the dialog closes without payment.
   bidImage.addEventListener('change', () => {
     const file = bidImage.files?.[0] ?? null
+    const spot = bidSpotItem
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
       previewUrl = null
@@ -511,6 +555,7 @@ export function initSponsors({ studio }) {
       bidPreview.hidden = true
       bidFileTitle.textContent = 'Upload brand image'
       renderFitNote(null)
+      clearBodyPreview()
       return
     }
     const fileError = validateLogoFile(file)
@@ -518,6 +563,7 @@ export function initSponsors({ studio }) {
       bidDetailsError.textContent = fileError
       bidDetailsError.hidden = false
       bidImage.value = ''
+      clearBodyPreview()
       return
     }
     previewUrl = URL.createObjectURL(file)
@@ -525,6 +571,21 @@ export function initSponsors({ studio }) {
     bidPreview.hidden = false
     bidFileTitle.textContent = file.name
     renderFitNote(file)
+
+    if (spot && studio.items.has(spot.id)) {
+      // Separate object URL for the texture so revoking previewUrl (modal
+      // thumbnail) can never break the in-flight body paint, and vice versa.
+      const bodyUrl = URL.createObjectURL(file)
+      const image = new Image()
+      image.onload = () => {
+        URL.revokeObjectURL(bodyUrl)
+        // Stale pick (dialog moved on or another file chosen meanwhile).
+        if (bidImage.files?.[0] !== file || bidSpotItem !== spot || bidModal.hidden) return
+        paintBodyPreview(spot, image)
+      }
+      image.onerror = () => URL.revokeObjectURL(bodyUrl)
+      image.src = bodyUrl
+    }
   })
 
   bidClose.addEventListener('click', closeBid)
