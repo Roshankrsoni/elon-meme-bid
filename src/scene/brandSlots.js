@@ -229,7 +229,7 @@ export function brandSlotDefs(a) {
       frac: upperArmFrac,
       shape: 'band',
       sizeCm: 4.8,
-      minBid: 50,
+      minBid: side > 0 ? 1 : 50,
       tight: true,
       minLat: limbGuard(side, upperArmFrac),
       outerBias: LIMB_BIAS,

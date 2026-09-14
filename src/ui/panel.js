@@ -61,6 +61,17 @@ export function initSponsors({ studio }) {
   const bidMinPill = document.querySelector('#js-bidmin')
   const bidClicks = document.querySelector('#js-bidclicks')
 
+  // Details-first view for claimed spots: brand info + take-space CTA.
+  // The bid form stays hidden until the CTA is pressed.
+  const bidDetails = document.querySelector('#js-biddetails')
+  const bidBlurb = document.querySelector('#js-bidblurb')
+  const bidLink = document.querySelector('#js-bidlink')
+  const takeSpaceBtn = document.querySelector('#js-takespace')
+  const takeSpacePrice = document.querySelector('#js-takespace-price')
+  const takeSpaceHint = document.querySelector('#js-takespace-hint')
+  const bidFormBrand = document.querySelector('#js-bidform-brand')
+  const bidFormAmount = document.querySelector('#js-bidform-amount')
+
   // Buyer details.
   const bidName = document.querySelector('#js-bidname')
   const bidEmail = document.querySelector('#js-bidemail')
@@ -415,6 +426,42 @@ export function initSponsors({ studio }) {
     bidFloor = startBid
     const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
 
+    // Claimed spots land on the details view first — the form (CTA target)
+    // stays hidden until "Take this space" is pressed. Open spots skip
+    // straight to the form.
+    const showDetails = !open
+    if (showDetails) {
+      bidFormBrand.hidden = true
+      bidFormAmount.hidden = true
+      bidDetails.hidden = false
+
+      const blurb = String(brand.blurb ?? '').trim()
+      if (blurb) {
+        bidBlurb.textContent = blurb
+        bidBlurb.hidden = false
+      } else {
+        bidBlurb.hidden = true
+      }
+      const rawUrl = String(brand.url ?? '').trim()
+      if (rawUrl) {
+        const href = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
+        const label = rawUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '')
+        bidLink.href = href
+        bidLink.textContent = `${label} ↗`
+        bidLink.hidden = false
+      } else {
+        bidLink.hidden = true
+      }
+      takeSpacePrice.textContent = money(startBid)
+      takeSpaceHint.textContent =
+        `Take it for ${money(startBid)} — outbids ${money(current)} by $${BID_INCREMENT_USD}. ` +
+        `You pay securely — the spot updates once payment succeeds.`
+    } else {
+      bidDetails.hidden = true
+      bidFormBrand.hidden = false
+      bidFormAmount.hidden = false
+    }
+
     // Heavy part: drawing a multi-megapixel upload into the tile blocks first
     // paint on phones, so it lands after the dialog is visible (and is cached
     // after the first open, like the sponsors rows).
@@ -438,11 +485,13 @@ export function initSponsors({ studio }) {
       ? `Minimum bid is $${startBid}. You pay securely — the spot updates once payment succeeds.`
       : `Outbids the standing price by $${BID_INCREMENT_USD}. You pay securely — the spot updates once payment succeeds.`
 
+    const viewCount = parseCount(brand.views)
+    const viewsSuffix = viewCount > 0 ? ` · ${viewCount.toLocaleString('en-US')} views so far.` : ''
     bidNote.textContent = open
       ? `No sponsor yet. Take it from $${startBid}, or name your own price.`
       : spots.length
-        ? `Currently on the ${spots.map((entry) => entry.def.label.toLowerCase()).join(' and ')} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
-        : `${brand.blurb} · ${parseCount(brand.views).toLocaleString('en-US')} views so far.`
+        ? `Currently on the ${spots.map((entry) => entry.def.label.toLowerCase()).join(' and ')}${viewsSuffix}`
+        : `${brand.blurb}${viewsSuffix}`
 
     bidAmount.value = ''
     bidAmount.placeholder = money(startBid).slice(1)
@@ -468,9 +517,11 @@ export function initSponsors({ studio }) {
 
     showModal(bidModal)
     document.body.classList.add('is-modal')
-    // Focus the primary action, not the text field — focusing the field pops
-    // the keyboard over the button on phones.
-    bidTakeBtn.focus({ preventScroll: true })
+    // Details-first for claimed spots: focus the take-space CTA. Open spots
+    // go straight to the form — focus the payment action, not the text
+    // field, so the keyboard never covers the button on phones.
+    if (showDetails) takeSpaceBtn.focus({ preventScroll: true })
+    else bidTakeBtn.focus({ preventScroll: true })
 
     // Paid bids on Supabase outrank the catalogue price — refresh the line
     // without disturbing a dialog that has since moved on.
@@ -484,10 +535,23 @@ export function initSponsors({ studio }) {
           bidCurrent.textContent = money(live)
           if (!bidBusy) bidTakePrice.textContent = money(live + BID_INCREMENT_USD)
           bidAmount.placeholder = money(live + BID_INCREMENT_USD).slice(1)
+          takeSpacePrice.textContent = money(live + BID_INCREMENT_USD)
+          takeSpaceHint.textContent =
+            `Take it for ${money(live + BID_INCREMENT_USD)} — outbids ${money(live)} by $${BID_INCREMENT_USD}. ` +
+            `You pay securely — the spot updates once payment succeeds.`
         })
         .catch(() => {})
     }
   }
+
+  // Details → form: the CTA reveals the buyer + bid form for this spot.
+  takeSpaceBtn.addEventListener('click', () => {
+    if (!bidBrand || !bidSpotItem) return
+    bidDetails.hidden = true
+    bidFormBrand.hidden = false
+    bidFormAmount.hidden = false
+    bidTakeBtn.focus({ preventScroll: true })
+  })
 
   function closeBid() {
     if (bidModal.hidden) return

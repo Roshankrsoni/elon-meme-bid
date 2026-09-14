@@ -174,7 +174,17 @@
           <p class="bidmodal__note" id="bid-note"></p>
           <p class="bidmodal__clicks" id="js-bidclicks" hidden></p>
 
-          <div class="bidbrand">
+          <div class="biddetails" id="js-biddetails" hidden>
+            <p class="biddetails__blurb" id="js-bidblurb" hidden></p>
+            <a class="biddetails__link" id="js-bidlink" href="#" target="_blank" rel="noreferrer" hidden></a>
+            <button type="button" class="bidtake" id="js-takespace">
+              <span class="bidtake__label">Take this space</span>
+              <span class="bidtake__price" id="js-takespace-price"></span>
+            </button>
+            <p class="bidmodal__hint" id="js-takespace-hint"></p>
+          </div>
+
+          <div class="bidbrand" id="js-bidform-brand">
             <p class="bidbrand__title">Your brand on this spot</p>
             <p class="bidbrand__legend"><i class="req">*</i> required</p>
             <p class="bidbrand__size" id="js-bidsize"></p>
@@ -201,7 +211,7 @@
             <p class="bidcustom__error" id="js-bidderror" role="alert" hidden></p>
           </div>
 
-          <div class="bidamount">
+          <div class="bidamount" id="js-bidform-amount">
             <p class="bidbrand__title">Your bid <span class="minpill" id="js-bidmin">Min $20</span></p>
             <button type="button" class="bidtake" id="js-bidtake">
               <span class="bidtake__label">Continue to payment</span>

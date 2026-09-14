@@ -48,12 +48,12 @@ Deno.serve(async (req) => {
   if (bid.status !== 'pending') return json({ error: `Bid is ${bid.status}` }, 409)
 
   // Per-spot starting bids — mirrors minBid in brandSlotDefs (1-2 chest $100,
-  // 3-5 arms $50, 6-7 back $100, 8 lower back $120). Unknown spots fall back
-  // to the global $50 floor.
+  // left upper arm (3rd sticker) $1, other arms $50, 6-7 back $100,
+  // 8 lower back $120). Unknown spots fall back to the global $50 floor.
   const SPOT_MINIMUMS_CENTS: Record<string, number> = {
     Chest_Left: 10000,
     Chest_Right: 10000,
-    UpperArm_Left: 5000,
+    UpperArm_Left: 100,
     UpperArm_Right: 5000,
     Forearm_Right: 5000,
     Back_Left: 10000,
