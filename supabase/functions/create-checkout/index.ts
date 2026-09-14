@@ -32,10 +32,13 @@ Deno.serve(async (req) => {
 
   let bidId = ''
   let returnBase = ''
+  // TEMPORARY $1 live-payment test hook for UpperArm_Left. Remove after test.
+  let testOneDollar = false
   try {
     const body = await req.json()
     bidId = String(body?.bid_id ?? '')
     returnBase = String(body?.return_base ?? '').replace(/\/$/, '')
+    testOneDollar = body?.test_one_dollar === true
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
@@ -67,6 +70,10 @@ Deno.serve(async (req) => {
 
   // Server-side auction guard: the bid must beat every paid bid by at least
   // the $10 increment.
+  // TEMPORARY: $1 live-payment test hook skips the increment guard, and only
+  // for an exact-$1 bid on UpperArm_Left. Remove after test.
+  const isDollarTest =
+    testOneDollar && bid.spot_id === 'UpperArm_Left' && bid.amount_cents === 100
   const { data: top } = await admin
     .from('bids')
     .select('amount_cents')
@@ -76,7 +83,7 @@ Deno.serve(async (req) => {
     .limit(1)
   const topPaid = top?.[0]?.amount_cents ?? 0
   const BID_INCREMENT_CENTS = 1000
-  if (bid.amount_cents < topPaid + BID_INCREMENT_CENTS) {
+  if (!isDollarTest && bid.amount_cents < topPaid + BID_INCREMENT_CENTS) {
     return json({ error: 'This bid must beat the top paid bid by at least $10' }, 409)
   }
 

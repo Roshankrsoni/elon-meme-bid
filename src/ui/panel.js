@@ -71,6 +71,9 @@ export function initSponsors({ studio }) {
   const takeSpaceHint = document.querySelector('#js-takespace-hint')
   const bidFormBrand = document.querySelector('#js-bidform-brand')
   const bidFormAmount = document.querySelector('#js-bidform-amount')
+  // TEMPORARY $1 live-payment test hook (UpperArm_Left only). Remove after test.
+  const testDollarBtn = document.querySelector('#js-test-dollar')
+  const bidCustomBlock = bidFormAmount.querySelector('.bidcustom')
 
   // Buyer details.
   const bidName = document.querySelector('#js-bidname')
@@ -237,6 +240,8 @@ export function initSponsors({ studio }) {
   let bidFloor = MIN_BID_USD
   let bidBusy = false
   let previewUrl = null
+  // TEMPORARY $1 live-payment test hook. Remove after test.
+  let testDollarActive = false
 
   // Temporary body preview: the uploaded logo is painted onto the focused
   // spot while the bid dialog is open, then restored on close (the spot only
@@ -376,8 +381,9 @@ export function initSponsors({ studio }) {
   /**
    * Records the bid, then hands off to Dodo checkout. The spot is only
    * claimed once the webhook confirms payment (see settlePaymentReturn).
+   * TEMPORARY: `testOneDollar` forwards the $1 test flag for UpperArm_Left.
    */
-  const confirmBid = async (amount) => {
+  const confirmBid = async (amount, { testOneDollar = false } = {}) => {
     if (bidBusy) return
     const brand = bidBrand
     const spot = bidSpotItem
@@ -404,7 +410,7 @@ export function initSponsors({ studio }) {
         brand_image_url: imageUrl,
         suggested_size_cm: Math.round(spot.sizeCm ?? 12),
       })
-      await startCheckout(bid.id)
+      await startCheckout(bid.id, testOneDollar ? { testOneDollar: true } : undefined)
       // A successful checkout leaves this page for Dodo — no UI to restore.
     } catch (err) {
       bidDetailsError.textContent = err instanceof Error ? err.message : 'Something went wrong.'
@@ -425,6 +431,9 @@ export function initSponsors({ studio }) {
     const startBid = open ? (spot?.def?.minBid ?? MIN_BID_USD) : current + BID_INCREMENT_USD
     bidFloor = startBid
     const spots = spot ? [spot] : [...studio.items.values()].filter((item) => item.brand === brand)
+    // TEMPORARY $1 test hook state. Remove after test.
+    testDollarActive = false
+    bidCustomBlock.hidden = false
 
     // Claimed spots land on the details view first — the form (CTA target)
     // stays hidden until "Take this space" is pressed. Open spots skip
@@ -456,10 +465,13 @@ export function initSponsors({ studio }) {
       takeSpaceHint.textContent =
         `Take it for ${money(startBid)} — outbids ${money(current)} by $${BID_INCREMENT_USD}. ` +
         `You pay securely — the spot updates once payment succeeds.`
+      // TEMPORARY $1 test hook: plain text CTA, UpperArm_Left only. Remove after test.
+      testDollarBtn.hidden = spot?.id !== 'UpperArm_Left'
     } else {
       bidDetails.hidden = true
       bidFormBrand.hidden = false
       bidFormAmount.hidden = false
+      testDollarBtn.hidden = true
     }
 
     // Heavy part: drawing a multi-megapixel upload into the tile blocks first
@@ -547,10 +559,28 @@ export function initSponsors({ studio }) {
   // Details → form: the CTA reveals the buyer + bid form for this spot.
   takeSpaceBtn.addEventListener('click', () => {
     if (!bidBrand || !bidSpotItem) return
+    testDollarActive = false
+    bidCustomBlock.hidden = false
     bidDetails.hidden = true
     bidFormBrand.hidden = false
     bidFormAmount.hidden = false
     bidTakeBtn.focus({ preventScroll: true })
+  })
+
+  // TEMPORARY $1 live-payment test hook (UpperArm_Left only). Reveals the
+  // form locked to $1 — custom price hidden. Remove after test.
+  testDollarBtn.addEventListener('click', () => {
+    if (!bidBrand || !bidSpotItem) return
+    testDollarActive = true
+    bidFloor = 1
+    bidDetails.hidden = true
+    bidFormBrand.hidden = false
+    bidFormAmount.hidden = false
+    bidCustomBlock.hidden = true
+    bidTakePrice.textContent = money(1)
+    bidMinPill.textContent = 'Min $1'
+    bidHint.textContent = 'Temporary $1 live-payment test — removed afterwards.'
+    bidName.focus({ preventScroll: true })
   })
 
   function closeBid() {
@@ -580,7 +610,7 @@ export function initSponsors({ studio }) {
 
   bidTakeBtn.addEventListener('click', () => {
     if (!bidBrand || bidBusy) return
-    confirmBid(bidFloor)
+    confirmBid(bidFloor, testDollarActive ? { testOneDollar: true } : undefined)
   })
 
   // Keep the field reading as money while it is typed into.
