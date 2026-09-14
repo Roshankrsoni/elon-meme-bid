@@ -278,6 +278,27 @@ svg {
   cursor: default;
 }
 
+/* Background-music toggle: accent when playing. */
+.iconbtn--music.is-on {
+  color: var(--accent-hi);
+  border-color: var(--accent-dim);
+  background: rgba(31, 214, 240, 0.12);
+}
+
+/* Hidden YouTube player — audio only. Kept at 2px (not display:none)
+/ so playback isn't throttled. */
+.ytmusic {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .iconbtn--live svg { display: none; }
 
 .iconbtn.is-off .wave { opacity: 0.2; }

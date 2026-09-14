@@ -86,6 +86,13 @@
               <path d="M13 2.4V5.2h-2.8" />
             </svg>
           </button>
+          <button type="button" class="iconbtn iconbtn--music" id="js-music" aria-pressed="false" title="Background music">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M6 11.5V4l7-1.5V9.5" />
+              <circle cx="4" cy="11.5" r="2" />
+              <circle cx="11" cy="9.5" r="2" />
+            </svg>
+          </button>
         </div>
       </section>
 
@@ -241,6 +248,9 @@
     </div>
 
     <div class="bidtoast" id="js-toast" role="status" hidden></div>
+
+    <!-- Hidden YouTube player for background music (audio only). -->
+    <div class="ytmusic" aria-hidden="true"><div id="js-ytplayer"></div></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

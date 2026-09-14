@@ -1,5 +1,6 @@
 import { leaderboard, profile, site } from '../config.js'
 import { fetchLiveLeaderboard, fetchTickerCountries } from '../lib/bidding.js'
+import { initBackgroundMusic, toggleMusic } from '../lib/sound.js'
 import { avatarPhoto } from './placeholders.js'
 
 const pad = (value) => String(Math.max(0, Math.floor(value))).padStart(2, '0')
@@ -172,6 +173,10 @@ export function initHud({ onResetCamera, onToggleSponsors }) {
 
   document.querySelector('#js-reset').addEventListener('click', onResetCamera)
   document.querySelector('#js-sponsors').addEventListener('click', onToggleSponsors)
+
+  const music = document.querySelector('#js-music')
+  initBackgroundMusic(music)
+  music.addEventListener('click', () => toggleMusic())
 
   return {
     dispose() {

@@ -1,4 +1,5 @@
 import { logoDataUrl, patchAspect } from './patches.js'
+import { initClickSounds, playClick } from '../lib/sound.js'
 import {
   BID_INCREMENT_USD,
   MIN_BID_USD,
@@ -32,6 +33,7 @@ const parseCount = (value) => {
  * All placement state lives in BrandSlots; this file only reads and reports it.
  */
 export function initSponsors({ studio }) {
+  initClickSounds()
   const money = (value) => `$${Math.round(value).toLocaleString('en-US')}`
 
   // Sponsors modal.
@@ -683,7 +685,10 @@ export function initSponsors({ studio }) {
 
   // A tap on a placeholder or a brand on the body opens the bid dialog for
   // that spot directly. The sponsors list never opens from the body.
-  studio.onOpenBid = (brand, item) => openBid(brand, item)
+  studio.onOpenBid = (brand, item) => {
+    playClick()
+    openBid(brand, item)
+  }
 
   // Taps on placed brands count — locally per visitor, globally per spot.
   studio.onSpotClick = (item) => {
