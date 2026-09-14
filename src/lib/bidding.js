@@ -172,6 +172,33 @@ export function loadBrandImage(url) {
   })
 }
 
+const storyCache = new Map()
+
+/**
+ * A brand site's meta description (Microlink API, cached per URL).
+ * Null when unavailable — callers keep their fallback copy.
+ */
+export async function fetchBrandStory(rawUrl) {
+  const trimmed = String(rawUrl ?? '').trim()
+  const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  if (!/^https?:\/\/.+\..+/.test(href)) return null
+  if (storyCache.has(href)) return storyCache.get(href)
+  const pending = (async () => {
+    try {
+      const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(href)}`)
+      if (!res.ok) return null
+      const json = await res.json()
+      return String(json?.data?.description ?? '').trim() || null
+    } catch {
+      return null
+    }
+  })()
+  storyCache.set(href, pending)
+  const story = await pending
+  storyCache.set(href, story)
+  return story
+}
+
 /* ---------------------------------------------------------- payment return */
 
 /** Top paid bid per spot, richest first — the source of truth for the body. */

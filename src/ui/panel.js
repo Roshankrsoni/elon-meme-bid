@@ -5,6 +5,7 @@ import {
   MIN_BID_USD,
   bumpLocalSpotClick,
   createBid,
+  fetchBrandStory,
   fetchSpotClicks,
   getLocalSpotClicks,
   getTopPaidBid,
@@ -478,6 +479,20 @@ export function initSponsors({ studio }) {
     bidLogo.alt = open ? '' : `${brand.label} logo`
     bidTitle.textContent = open ? 'This spot is open' : brand.label
     bidHandle.textContent = open ? 'Be the first bid' : brand.handle
+    // Paid spots carry a placeholder '@you' handle — swap it for the brand
+    // site's own meta description (two lines, truncated via CSS). Falls back
+    // to '@you' when the site can't be read.
+    if (showDetails && brand.handle === '@you') {
+      const target = String(brand.blurb ?? brand.url ?? '').trim()
+      if (target) {
+        fetchBrandStory(target)
+          .then((story) => {
+            if (!story || bidBrand !== brand || bidModal.hidden) return
+            bidHandle.textContent = story
+          })
+          .catch(() => {})
+      }
+    }
     bidCurrent.textContent = open ? `From $${startBid}` : money(current)
     bidTakePrice.textContent = money(startBid)
     bidMinPill.textContent = `Min ${money(startBid)}`
@@ -519,6 +534,9 @@ export function initSponsors({ studio }) {
 
     showModal(bidModal)
     document.body.classList.add('is-modal')
+    // Details view gets the roomier brand hero (see .is-details); the form
+    // view stays exactly as it is.
+    bidModal.classList.toggle('is-details', showDetails)
     // Details-first for claimed spots: focus the take-space CTA. Open spots
     // go straight to the form — focus the payment action, not the text
     // field, so the keyboard never covers the button on phones.
@@ -549,6 +567,7 @@ export function initSponsors({ studio }) {
   // Details → form: the CTA reveals the buyer + bid form for this spot.
   takeSpaceBtn.addEventListener('click', () => {
     if (!bidBrand || !bidSpotItem) return
+    bidModal.classList.remove('is-details')
     bidDetails.hidden = true
     bidFormBrand.hidden = false
     bidFormAmount.hidden = false
@@ -558,6 +577,7 @@ export function initSponsors({ studio }) {
   function closeBid() {
     if (bidModal.hidden) return
     bidModal.classList.remove('is-open')
+    bidModal.classList.remove('is-details')
     // The sponsors modal shares `is-modal` — keep the page locked while open.
     if (sponsorsModal.hidden) document.body.classList.remove('is-modal')
     // Drop the temporary logo from the body before forgetting the spot.
