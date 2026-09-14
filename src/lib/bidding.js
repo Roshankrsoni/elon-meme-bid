@@ -111,14 +111,11 @@ export async function fetchLiveLeaderboard(limit = 8) {
 }
 
 /** Asks the edge function for a fresh Dodo checkout URL, then leaves for it. */
-// TEMPORARY: `testOneDollar` forwards the $1 test flag (UpperArm_Left). Remove after test.
-export async function startCheckout(bidId, { testOneDollar = false } = {}) {
+export async function startCheckout(bidId) {
   const db = requireBackend()
   const returnBase = `${location.origin}${location.pathname}`
   const { data, error } = await db.functions.invoke('create-checkout', {
-    body: testOneDollar
-      ? { bid_id: bidId, return_base: returnBase, test_one_dollar: true }
-      : { bid_id: bidId, return_base: returnBase },
+    body: { bid_id: bidId, return_base: returnBase },
   })
   if (error) throw new Error(`Checkout failed: ${error.message}`)
   if (!data?.checkout_url) throw new Error(data?.error ?? 'Checkout failed: no payment link returned.')
