@@ -478,19 +478,28 @@ export function initSponsors({ studio }) {
     }
     bidLogo.alt = open ? '' : `${brand.label} logo`
     bidTitle.textContent = open ? 'This spot is open' : brand.label
+    bidHandle.hidden = false
     bidHandle.textContent = open ? 'Be the first bid' : brand.handle
-    // Paid spots carry a placeholder '@you' handle — swap it for the brand
-    // site's own meta description (two lines, truncated via CSS). Falls back
-    // to '@you' when the site can't be read.
+    // Paid spots carry a placeholder '@you' handle — never show it. Swap in
+    // a shimmer while the brand site's meta description loads (two lines,
+    // truncated via CSS). The line hides when the site can't be read.
     if (showDetails && brand.handle === '@you') {
       const target = String(brand.blurb ?? brand.url ?? '').trim()
       if (target) {
+        bidHandle.innerHTML = '<span class="handleshimmer" aria-hidden="true"></span>'
         fetchBrandStory(target)
           .then((story) => {
-            if (!story || bidBrand !== brand || bidModal.hidden) return
-            bidHandle.textContent = story
+            if (bidBrand !== brand || bidModal.hidden) return
+            if (story) bidHandle.textContent = story
+            else {
+              bidHandle.textContent = ''
+              bidHandle.hidden = true
+            }
           })
           .catch(() => {})
+      } else {
+        bidHandle.textContent = ''
+        bidHandle.hidden = true
       }
     }
     bidCurrent.textContent = open ? `From $${startBid}` : money(current)
