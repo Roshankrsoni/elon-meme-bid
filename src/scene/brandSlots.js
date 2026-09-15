@@ -198,7 +198,7 @@ export function brandSlotDefs(a) {
       frac: chestFrac,
       shape: 'square',
       sizeCm: 13,
-      minBid: 100,
+      minBid: 10,
       /*
        * The chest is lopsided: the figure's own right pectoral turns away
        * faster, so a little less of the square can land on skin there.
@@ -229,7 +229,7 @@ export function brandSlotDefs(a) {
       frac: upperArmFrac,
       shape: 'band',
       sizeCm: 4.8,
-      minBid: side > 0 ? 1 : 50,
+      minBid: 10,
       tight: true,
       minLat: limbGuard(side, upperArmFrac),
       outerBias: LIMB_BIAS,
@@ -250,7 +250,7 @@ export function brandSlotDefs(a) {
       frac: forearmFrac,
       shape: 'band',
       sizeCm: 4,
-      minBid: 50,
+      minBid: 10,
       tight: true,
       minLat: limbGuard(-1, forearmFrac),
       outerBias: LIMB_BIAS,
@@ -271,7 +271,7 @@ export function brandSlotDefs(a) {
       frac: backFrac,
       shape: 'square',
       sizeCm: 14,
-      minBid: 100,
+      minBid: 10,
       minFit: 0.88,
       scan: 0.018,
       // No vertical sweep: both scapula squares stay at exactly backFrac, so
@@ -295,7 +295,7 @@ export function brandSlotDefs(a) {
       frac: waistFrac,
       shape: 'wide',
       sizeCm: 16.5,
-      minBid: 120,
+      minBid: 10,
       minFit: 0.85,
       scan: 0.03,
       brandId: 'pulse',

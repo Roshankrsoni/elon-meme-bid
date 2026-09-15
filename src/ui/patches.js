@@ -44,7 +44,7 @@ export const BRANDS = [
 export const SLOT = {
   id: 'slot', label: 'Your logo', mark: 'empty', fill: LIME, seed: 11,
   band: ['YOUR BRAND', 'YOUR BRAND'], handle: '@yourbrand', url: 'sponsormybody.com',
-  amount: '$50', views: '0', blurb: 'This spot is open — claim it with your logo.',
+  amount: '$10', views: '0', blurb: 'This spot is open — claim it with your logo.',
 }
 
 export function findBrand(id) {

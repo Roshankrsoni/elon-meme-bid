@@ -179,10 +179,9 @@ URL → Dodo redirects back to `/?bid=<id>` → the `dodo-webhook` marks the bid
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Test mode first:
    Dodo test cards, `DODO_ENV=test`.
 5. Amounts are USD cents; every checkout creates one throwaway Dodo product
-   per bid (auction prices can't come from a fixed catalogue). Starting bids
-   are per spot — chest 1–2 and back 6–7 open at $100, arms 3–5 at $50, the
-   lower-back banner 8 at $120 (`minBid` in `brandSlotDefs`, mirrored in
-   `create-checkout`, backstopped by migration `0007` at the $50 global floor).
+   per bid (auction prices can't come from a fixed catalogue). Every spot
+   opens at $10 (`minBid` in `brandSlotDefs`, mirrored in
+   `create-checkout`, backstopped by migration `0008` at the $10 global floor).
 
 ## Not built yet
 

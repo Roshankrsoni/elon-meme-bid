@@ -22,7 +22,7 @@ export function showToast(message, ms = 4200) {
 
 /* -------------------------------------------------------------- validation */
 
-export const MIN_BID_USD = 50
+export const MIN_BID_USD = 10
 export const MIN_BID_CENTS = MIN_BID_USD * 100
 
 /** Minimum raise over the standing paid bid to take a spot. */
